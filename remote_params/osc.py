@@ -1,5 +1,6 @@
 
 from oscpy.client import OSCClient
+from oscpy.server import OSCThreadServer
 import logging, json
 from .server import Remote
 from .schema import schema_list
@@ -108,8 +109,35 @@ class Connection:
     self.disconnect()
     self.client.sendDisconnect()
 
+
+def create_osc_listener(port=8000, callback=None, addresses=[]):
+  logger.debug('[create_osc_listener port={}]'.format(port))
+  def converter(addr, *args):
+    logger.debug("[create_osc_listener.converter] addr={} args={}".format(addr, args))
+    if callback:
+      callback(addr.decode('utf-8'), args)
+
+  osc = OSCThreadServer(advanced_matching=True, encoding='utf8')  # See sources for all the arguments
+
+  # You can also use an \*nix socket path here
+  sock = osc.listen(address='0.0.0.0', port=port, default=True)
+  # osc.bind(b'/**', callback, get_address=True)
+
+  for addr in addresses:
+    osc.bind(bytes(addr, 'utf-8'), converter, get_address=True)
+
+  def disconnect():
+    osc.stop()  # Stop the default socket
+    osc.stop_all()  # Stop all sockets
+
+    # Here the server is still alive, one might call osc.listen() again
+    osc.terminate_server()  # Request the handler thread to stop looping
+    osc.join_server()
+
+  return osc, disconnect
+
 class OscServer:
-  def __init__(self, server, prefix=None, capture_sends=None):
+  def __init__(self, server, prefix=None, capture_sends=None, listen=True):
     self.server = server
     self.capture_sends = capture_sends
     self.connections = []
@@ -122,9 +150,19 @@ class OscServer:
     self.prefix = prefix if prefix else '/params'
     self.connect_addr = self.prefix+'/connect'
     self.disconnect_addr = self.prefix+'/disconnect'
-    self.connect_confirm_addr = self.prefix+'/connect/confirm'
     self.value_addr = self.prefix+'/value'
     self.schema_addr = self.prefix+'/schema'
+
+    self.disconnect_listener = None
+    if listen:
+      server, disconnect = create_osc_listener(callback=self.receive, addresses=[
+        self.connect_addr,
+        self.disconnect_addr,
+        self.value_addr,
+        self.schema_addr
+      ])
+
+      self.disconnect_listener = disconnect
 
   def __del__(self):
     # this triggers cleanup in destructor of the Connection instances
@@ -136,7 +174,11 @@ class OscServer:
       c.disconnect()
     self.connections.clear()
 
+    if self.disconnect_listener:
+      self.disconnect_listener()
+
   def receive(self, addr, args):
+    logger.debug('[OscServer.receive] addr={} args={}'.format(addr, args))
     if addr == self.value_addr:
       if len(args) == 2:
         self.onValueReceived(args[0], args[1])
@@ -176,3 +218,26 @@ class OscServer:
   
   def onSchemaRequest(self, responseInfo):
     Client(self, responseInfo).sendSchema(schema_list(self.server.params))
+
+
+if __name__ == '__main__':
+  from .server import Server
+  from .params import Params
+  import time
+
+
+  params = Params()
+  def log(val):
+    print(val)
+  params.string('name').onchange(log)
+
+  osc_server = OscServer(Server(params))
+
+  try:
+    print('Waiting for incoming messages')
+
+    while True:
+      time.sleep(0.1)
+
+  except KeyboardInterrupt:
+    print('[timer] KeyboardInterrupt, stopping.')

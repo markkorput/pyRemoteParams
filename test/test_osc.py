@@ -21,7 +21,7 @@ class TestOsc(unittest.TestCase):
       send_log.append((host,port,addr,args))
 
     # create osc server
-    osc_server = OscServer(server, capture_sends=capture)
+    osc_server = OscServer(server, capture_sends=capture, listen=False)
 
     #
     # Client connects
