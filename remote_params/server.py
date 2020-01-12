@@ -143,7 +143,11 @@ class Server:
 
   def handle_remote_value_change(self, remote, path, value):
     logger.debug('[Server.handle_remote_value_change]')
-    get_path(self.params, path).set(value)
+    param = get_path(self.params, path)
+    if not param:
+      logger.warning('[Server.handle_remote_value_change] unknown path: {}'.format(path))
+      return
+    param.set(value)
 
   def handle_remote_schema_request(self, remote):
     logger.debug('[Server.handle_remote_schema_request]')
