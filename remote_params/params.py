@@ -98,14 +98,16 @@ class Params(list):
     if isinstance(item, Param):
       def onchange():
         self.changeEvent()
-        self.valueChangeEvent(item)
+        self.valueChangeEvent('/'+id, item.val())
       item.changeEvent += onchange
 
     # another sub-params-group added?
     if isinstance(item, Params):
       item.changeEvent += self.changeEvent.fire
       item.schemaChangeEvent += self.schemaChangeEvent.fire
-      item.valueChangeEvent += self.valueChangeEvent.fire
+      def forwardValChange(path, val):
+        self.valueChangeEvent('/'+id+path, val)
+      item.valueChangeEvent += forwardValChange
   
     self.changeEvent()
     return item
@@ -132,3 +134,12 @@ class Params(list):
 
   def get(self, id):
     return self.dict[id]
+
+  def get_path(self, path):
+    parts = path.split('/')[1:]
+    current = self
+
+    for p in parts:
+      current = current.get(p)
+
+    return current
