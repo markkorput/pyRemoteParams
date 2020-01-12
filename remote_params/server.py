@@ -41,6 +41,7 @@ class Remote:
     self.sendConnectConfirmationEvent(schema_data)
 
   def send_disconnect(self):
+    logger.debug('[Remote.send_disconnect listeners={}]'.format(self.sendDisconnectEvent.getSubscriberCount()))
     '''
     Use this notify/confirm disconnect to the Remote
     '''
@@ -77,7 +78,8 @@ def create_connection(server, remote):
   # add remote to server list
   server.connected_remotes.append(remote)
   def remove():
-    server.connected_remotes.remove(remote)
+    if remote in server.connected_remotes:
+      server.connected_remotes.remove(remote)
   cleanups.append(remove)
 
   # done, send confirmation to remote with schema data
@@ -143,7 +145,11 @@ class Server:
 
   def handle_remote_value_change(self, remote, path, value):
     logger.debug('[Server.handle_remote_value_change]')
-    get_path(self.params, path).set(value)
+    param = get_path(self.params, path)
+    if not param:
+      logger.warning('[Server.handle_remote_value_change] unknown path: {}'.format(path))
+      return
+    param.set(value)
 
   def handle_remote_schema_request(self, remote):
     logger.debug('[Server.handle_remote_schema_request]')

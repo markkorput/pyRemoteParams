@@ -8,7 +8,8 @@ setup(name='remote_params',
       author_email='dr.theman@gmail.com',
       license='MIT',
       install_requires=[
-            'evento>=1.0.2'],
+            'evento>=1.0.2',
+            'oscpy'],
       zip_safe=True,
       test_suite='nose.collector',
       tests_require=['nose'],)
