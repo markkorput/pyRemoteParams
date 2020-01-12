@@ -109,6 +109,7 @@ class Params(list):
         self.valueChangeEvent('/'+id+path, val)
       item.valueChangeEvent += forwardValChange
   
+    self.schemaChangeEvent()
     self.changeEvent()
     return item
 
