@@ -46,21 +46,89 @@ class Remote:
     '''
     self.sendDisconnectEvent()
 
+def create_connection(server, remote):
+
+  '''
+  Creates all the logic to connect the remote to the server and start
+  receiving broadcasted data, as well as making sure date from the remote
+  arrives at and gets processed by the server.
+
+  It returns a single function which performs all disconnect operations.
+  '''
+
+  logger.debug('[create_connection]')
+
+  cleanups = []    
+
+  # register handler when receiving value from remote
+  def value_handler(path, value):
+    logger.debug('[Server.connect.value_handler]')
+    server.handle_remote_value_change(remote, path, value)
+  unsub = remote.valueEvent.add(value_handler)
+  cleanups.append(unsub)
+
+  # register handler when receiving schema request from remote
+  def schema_request_handler():
+    logger.debug('[Server.connect.schema_request_handler]')
+    server.handle_remote_schema_request(remote)
+  unsub = remote.requestSchemaEvent.add(schema_request_handler)
+  cleanups.append(unsub)
+
+  # add remote to server list
+  server.connected_remotes.append(remote)
+  def remove():
+    server.connected_remotes.remove(remote)
+  cleanups.append(remove)
+
+  # done, send confirmation to remote with schema data
+  remote.send_connect_confirmation(schema_list(server.params))
+
+  cleanups.append(remote.send_disconnect)
+
+  def disconnect():
+    for func in cleanups:
+      func()
+
+  return disconnect
+
 class Server:
   def __init__(self, params):
     self.params = params
     self.connected_remotes = []
-    self._remote_cleanups = {}
 
-    self.params.schemaChangeEvent += self.broadcast_schema
-    self.params.valueChangeEvent += self.broadcast_value_change
+    self.connections = {}
+
+    self.cleanups = []
+    self.cleanups.append(self.params.schemaChangeEvent.add(self.broadcast_schema))
+    self.cleanups.append(self.params.valueChangeEvent.add(self.broadcast_value_change))
 
   def __del__(self):
-    self.params.schemaChangeEvent -= self.broadcast_schema
-    self.params.valueChangeEvent -= self.broadcast_value_change
-
     for r in self.connected_remotes:
       self.disconnect(r)
+
+    for func in self.cleanups:
+      func()
+
+  def connect(self, remote):
+    logger.debug('[Server.disconnect]')
+
+    if remote in self.connections:
+      logger.warning('[Server.connect] remote already connected')
+      return
+
+    # create and save new connection
+    self.connections[remote] = create_connection(self, remote)
+
+  def disconnect(self, remote):
+    logger.debug('[Server.disconnect]')
+
+    if not remote in self.connections:
+      logger.warning('[Server.disconnect] could not find connection')
+      return
+
+    disconnector = self.connections[remote]
+    disconnector()
+    del self.connections[remote]
 
   def broadcast_schema(self):
     logger.debug('[Server.broadcast_schema]')
@@ -73,39 +141,6 @@ class Server:
     for r in self.connected_remotes:
       r.send_value(path, value)
 
-  def connect(self, remote):
-    logger.debug('[Server.connect]')
-    self._remote_cleanups[remote] = []
-    # register handler when receiving value from remote
-    def value_handler(path, value):
-      logger.debug('[Server.connect.value_handler]')
-      self.handle_remote_value_change(remote, path, value)
-    unsub = remote.valueEvent.add(value_handler)
-    self._remote_cleanups[remote].append(unsub)
-
-    # register handler when receiving schema request from remote
-    def schema_request_handler():
-      logger.debug('[Server.connect.schema_request_handler]')
-      self.handle_remote_schema_request(remote)
-    unsub = remote.requestSchemaEvent.add(schema_request_handler)
-    self._remote_cleanups[remote].append(unsub)
-
-    # add remote to our list
-    self.connected_remotes.append(remote)
-
-    # done, send confirmation
-    remote.send_connect_confirmation(schema_list(self.params))
-
-  def disconnect(self, remote):
-    if remote in self._remote_cleanups:
-      for func in self._remote_cleanups[remote]:
-        logger.debug('[Server.disconnect] executing registered cleanup func')
-        func()
-      del self._remote_cleanups[remote]
-
-    remote.send_disconnect()  
-    self.connected_remotes.remove(remote)
-
   def handle_remote_value_change(self, remote, path, value):
     logger.debug('[Server.handle_remote_value_change]')
     get_path(self.params, path).set(value)
@@ -117,7 +152,7 @@ class Server:
 
 def create_sync_params(remote, request_initial_schema=True):
   '''
-  Create an instance of Params, which is updated with information
+  Creates an instance of Params, which is updated with information
   received by the given remote
   '''
   params = Params()
