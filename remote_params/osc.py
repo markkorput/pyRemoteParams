@@ -7,9 +7,23 @@ from .schema import schema_list
 logger = logging.getLogger(__name__)
 
 class Client:
+  '''
+  This Client class performs all server-to-client OSC communications.
+  The id given to the constructor specifies where all communications
+  should be addressed to and should have the following format:
+    '<host>:<port>'
+    
+    ie.
+
+    '127.0.0.1:8082'
+
+    or
+
+    'localhost:6000'
+  '''
+
   def __init__(self, server, id, prefix='/params'):
     self.send_raw = server.send
-    self.id = id
 
     parts = id.split(':')
 
@@ -21,33 +35,46 @@ class Client:
       self.port = int(parts[1])
       self.isValid = True
 
+    self.connect_confirm_addr = prefix+'/connect/confirm'
+    self.disconnect_addr = prefix+'/disconnect'
     self.schema_addr = prefix+'/schema'
+    self.value_addr = prefix+'/value'
 
   def send(self, addr, args=()):
     self.send_raw(self.host, self.port, addr, args)
+
+  def sendValue(self, path, value):
+    self.send(self.value_addr, (path, value))
 
   def sendSchema(self, data):
     if not self.isValid: return
     self.send(self.schema_addr, (json.dumps(data)))
 
+  def sendConnectConfirmation(self, data):
+    if not self.isValid: return
+    self.send(self.connect_confirm_addr, (json.dumps(data)))
+
+  def sendDisconnect(self):
+    self.send(self.disconnect_addr)
+
 class Connection:
+  '''
+  This responds to all server-to-client instructions from the Server
+  and translates them into OSC actions
+  '''
   def __init__(self, osc_server, id, connect=True):
+    logger.debug('[Connection.__init__] id: {}'.format(id))
     self.osc_server = osc_server
     self.server = osc_server.server
-    self.id = id
+    self.client = Client(osc_server, id)
+    self.isActive = self.client.isValid and connect
 
-    parts = id.split(':')
-
-    if len(parts) < 2 or not str(parts[1]).isdigit():
-      logger.warning('[Connection.__init__] invalid response details: {}'.format(id))
-      self.isValid = False
-    else:
-      self.host = parts[0]
-      self.port = int(parts[1])
-      self.isValid = True
-    
-    self.remote = self.create_remote_instance()
-    self.isActive = self.isValid and connect
+    r = Remote()
+    r.sendConnectConfirmationEvent += self.onConnectConfimToRemote
+    r.sendValueEvent += self.onValueToRemote
+    r.sendSchemaEvent += self.onSchemaToRemote
+    r.sendDisconnectEvent += self.onDisconnectToRemote
+    self.remote = r
 
     if self.isActive:
       self.server.connect(self.remote)
@@ -63,33 +90,23 @@ class Connection:
     if self.remote and self.server:
       self.server.disconnect(self.remote)
 
-  def create_remote_instance(self):
-    r = Remote()
-    r.sendConnectConfirmationEvent += self.onConnectConfimToRemote
-    r.sendValueEvent += self.onValueToRemote
-    r.sendSchemaEvent += self.onSchemaToRemote
-    r.sendDisconnectEvent += self.onDisconnectToRemote
-    return r
-
-  def send(self, addr, args=()):
-    self.osc_server.send(self.host, self.port, addr, args)
-
   def onValueToRemote(self, path, value):
     if not self.isActive: return
-    self.send(self.osc_server.value_addr, (path, value))
+    self.client.sendValue(path, value)
 
   def onSchemaToRemote(self, schema_data):
     if not self.isActive: return
-    self.send(self.osc_server.schema_addr, (json.dumps(schema_data)))
+    self.client.sendSchema(schema_data)
 
   def onConnectConfimToRemote(self, schema_data):
     if not self.isActive: return
-    self.send(self.osc_server.connect_confirm_addr, (json.dumps(schema_data)))
+    self.client.sendConnectConfirmation(schema_data)
 
   def onDisconnectToRemote(self):
+    logger.debug('[Connection.onDisconnectToRemote isActive={}]'.format(self.isActive))
     if not self.isActive: return
     self.disconnect()
-    self.send(self.osc_server.disconnect_addr)
+    self.client.sendDisconnect()
 
 class OscServer:
   def __init__(self, server, prefix=None, capture_sends=None):
@@ -149,7 +166,7 @@ class OscServer:
 
   def onConnect(self, response_info):
     connection = Connection(self, response_info)
-    if connection.isValid:
+    if connection.isActive:
       self.connections.append(connection)
 
   def onValueReceived(self, path, value):

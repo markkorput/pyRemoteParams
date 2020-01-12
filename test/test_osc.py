@@ -71,6 +71,20 @@ class TestOsc(unittest.TestCase):
     self.assertEqual(send_log, [
       ('192.168.1.2', 8080, '/params/schema', (json.dumps(schema_list(params))))])
 
+    #
+    # Client disconnected by server
+    #
+    send_log.clear()
+    # osc_server.receive('/params/disconnect', ('127.0.0.1:8081'))
+    for r in server.connected_remotes:
+      r.send_disconnect()
+      # server.disconnect(r)
+    self.assertEqual(send_log, [
+      ('127.0.0.1', 8081, '/params/disconnect', ())])
+
+
+
+
 # run just the tests in this file
 if __name__ == '__main__':
     unittest.main()

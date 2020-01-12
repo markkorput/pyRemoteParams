@@ -41,6 +41,7 @@ class Remote:
     self.sendConnectConfirmationEvent(schema_data)
 
   def send_disconnect(self):
+    logger.debug('[Remote.send_disconnect listeners={}]'.format(self.sendDisconnectEvent.getSubscriberCount()))
     '''
     Use this notify/confirm disconnect to the Remote
     '''
