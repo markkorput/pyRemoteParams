@@ -54,7 +54,13 @@ def remove_path(params, path):
   logger.debug('[remove_path] path={}'.format(path))
   parent_path = '/'.join(path.split('/')[0:-1])
   param_id = path.split('/')[-1]
-  params.get(parent_path).remove_id(param_id)
+
+  parent = params.get(parent_path)
+  if not parent:
+    logger.warning('[remove_path] could not find parent with path: {}'.format(parent_path))
+    return
+
+  parent.remove(param_id)
 
 def create_param(param_data):
   if not 'type' in param_data:

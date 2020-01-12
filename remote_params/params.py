@@ -80,85 +80,104 @@ class FloatParam(Param):
 
     Param.set(self, float(v))
 
+def create_child(params, id, item):
+  '''
+  This function performs all logic for adding a new item (param or sub-params-group)
+  to a Params groups and returns a single function the performs all cleanups for removing the item
+  '''
+  cleanups = []
+
+  # add
+  params.items_by_id[id] = item
+  list.append(params, [id, item])
+  # create remover
+  def remover():
+    del params.items_by_id[id]
+    for pair in params:
+      key, val = pair
+      if val == item:
+        list.remove(params, pair)
+
+    params.schemaChangeEvent()
+    params.changeEvent()
+  cleanups.append(remover)
+
+  # a single param added?
+  if isinstance(item, Param):
+    def onchange():
+      params.changeEvent()
+      params.valueChangeEvent('/'+id, item.val())
+    item.changeEvent += onchange
+    
+    # register cleanup logic
+    def cleanup():
+      item.changeEvent -= onchange
+    cleanups.append(cleanup)
+
+  # another sub-params-group added?
+  if isinstance(item, Params):
+    item.changeEvent += params.changeEvent.fire
+    item.schemaChangeEvent += params.schemaChangeEvent.fire
+    def forwardValChange(path, val):
+      params.valueChangeEvent('/'+id+path, val)
+    item.valueChangeEvent += forwardValChange
+
+    # record cleanup logic
+    def cleanup():
+      item.valueChangeEvent -= forwardValChange
+    cleanups.append(cleanup)
+
+  params.schemaChangeEvent()
+  params.changeEvent()
+
+  def cleanup():
+    for c in cleanups:
+      c()
+
+  return cleanup
+
 class Params(list):
   def __init__(self):
     self.changeEvent = Event()
     self.schemaChangeEvent = Event()
     self.valueChangeEvent = Event()
-    self.dict = {}
-    self._item_cleanups = {}
+
+    self.items_by_id = {}
+    self.removers = {}
+
+  def __del__(self):
+    for id in self.removers:
+      remover =self.removers[id]
+      remover()
+
+    self.removers = {}
 
   def append(self, id, item):
-    if id in self.dict:
+    if id in self.removers:
       logging.warning('Params already has an item with ID: {}'.format(id))
       return
 
-    self.dict[id] = item
-    self._item_cleanups[id] = []
-    list.append(self, [id, item])
-
-    # a single param added?
-    if isinstance(item, Param):
-      def onchange():
-        self.changeEvent()
-        self.valueChangeEvent('/'+id, item.val())
-      item.changeEvent += onchange
-      
-      # record cleanup logic
-      def cleanup():
-        item.changeEvent -= onchange
-      self._item_cleanups[id].append(cleanup)
-
-    # another sub-params-group added?
-    if isinstance(item, Params):
-      item.changeEvent += self.changeEvent.fire
-      item.schemaChangeEvent += self.schemaChangeEvent.fire
-      def forwardValChange(path, val):
-        self.valueChangeEvent('/'+id+path, val)
-      item.valueChangeEvent += forwardValChange
-
-      # record cleanup logic
-      def cleanup():
-        item.valueChangeEvent -= forwardValChange
-      self._item_cleanups[id].append(cleanup)
-
-    self.schemaChangeEvent()
-    self.changeEvent()
+    # create_child returns a single function which removes
+    # the child relationship again, which we save for calls to self.remove
+    remover = create_child(self, id, item)
+    self.removers[id] = remover
     return item
 
-  def remove(self, id, item):
-    if not id in self._item_cleanups or not id in self.dict:
+  def remove(self, id):
+    if not id in self.removers:
       logging.warning('[Params.remove] could not find item with id `{}` to remove'.format(id))
       return
 
-    # cleanup
-    for func in self._item_cleanups[id]:
-      func()
-    del self._item_cleanups[id]
-    del self.dict[id]
-
-    # find pair te remove
-    for pair in self:
-      key, val = pair
-      if val == item:
-        list.remove(self, pair)
-
-    self.schemaChangeEvent()
-    self.changeEvent()
+    # find remover (are created in self.append)
+    remover = self.removers[id]
+    del self.removers[id]
+    # run remover
+    remover()
 
   def append_param(self, id, type_):
     p = Param(type_)
     self.append(id, p)
     return p
-
-  def remove_id(self, id):
-    if not id in self.dict:
-      logging.warning('[Params.remove_id] could not find item with id `{}` to remove'.format(id))
-      return
-
-    item = self.dict[id]
-    self.remove(id, item)
-
 
   def string(self, id):
     return self.append_param(id, 's')
@@ -176,4 +195,4 @@ class Params(list):
     self.append(id, params)
 
   def get(self, id):
-    return self.dict[id] if id in self.dict else None
+    return self.items_by_id[id] if id in self.items_by_id else None
