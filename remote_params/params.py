@@ -4,10 +4,10 @@ import logging
 logger = logging.getLogger(__name__)
 
 class Param:
-  def __init__(self, id, type_):
-    self.id = id
+  def __init__(self, type_, default=None):
     self.type = type_
     self.value = None
+    self.default = default
 
     self.changeEvent = Event()
 
@@ -26,6 +26,11 @@ class Param:
       func(self.value)
     self.changeEvent += funcWithValue
 
+  def is_initialized(self):
+    return self.value != None
+
+  def val(self):
+    return self.value if self.is_initialized() else self.default
 
 class Params(list):
   def __init__(self):
@@ -57,7 +62,7 @@ class Params(list):
     self.changeEvent()
 
   def append_param(self, id, type_):
-    p = Param(id, type_)
+    p = Param(type_)
     self.append(id, p)
     return p
 
