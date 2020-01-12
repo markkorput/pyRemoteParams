@@ -72,19 +72,25 @@ def create_param(param_data):
 
   return Param(param_data['type'])
 
+def update_param(param, param_data):
+  if 'value' in param_data:
+    param.set(param_data['value'])
+  # TODO; also apply config changes like min/max/default?
+
 def apply_schema_list(params, schema_data):
   logger.debug('[apply_schema_list] schema_data={}'.format(schema_data))
 
   def add_new_items_and_values(params, schema_data):
     for param_data in schema_data:
-      existing = get_path(params, param_data['path'])
+      param = get_path(params, param_data['path'])
       
-      if existing:
-        if 'value' in param_data:
-          existing.set(param_data['value'])
-      else:
+      # create if doesn't exist
+      if not param:
         param = create_param(param_data)
         set_path(params, param_data['path'], param)
+
+      # update (apply value etc.)
+      update_param(param, param_data)
 
   def remove_items_not_in_schema_list(params, schema_data):
     dummy = Params()

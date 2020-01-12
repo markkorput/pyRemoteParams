@@ -50,6 +50,7 @@ class Server:
   def __init__(self, params):
     self.params = params
     self.connected_remotes = []
+    self._remote_cleanups = {}
 
     self.params.schemaChangeEvent += self.broadcast_schema
     self.params.valueChangeEvent += self.broadcast_value_change
@@ -74,18 +75,20 @@ class Server:
 
   def connect(self, remote):
     logger.debug('[Server.connect]')
-
+    self._remote_cleanups[remote] = []
     # register handler when receiving value from remote
     def value_handler(path, value):
       logger.debug('[Server.connect.value_handler]')
       self.handle_remote_value_change(remote, path, value)
-    remote.valueEvent += value_handler
+    unsub = remote.valueEvent.add(value_handler)
+    self._remote_cleanups[remote].append(unsub)
 
     # register handler when receiving schema request from remote
     def schema_request_handler():
       logger.debug('[Server.connect.schema_request_handler]')
       self.handle_remote_schema_request(remote)
-    remote.requestSchemaEvent += schema_request_handler
+    unsub = remote.requestSchemaEvent.add(schema_request_handler)
+    self._remote_cleanups[remote].append(unsub)
 
     # add remote to our list
     self.connected_remotes.append(remote)
@@ -94,6 +97,12 @@ class Server:
     remote.send_connect_confirmation(schema_list(self.params))
 
   def disconnect(self, remote):
+    if remote in self._remote_cleanups:
+      for func in self._remote_cleanups[remote]:
+        logger.debug('[Server.disconnect] executing registered cleanup func')
+        func()
+      del self._remote_cleanups[remote]
+
     remote.send_disconnect()  
     self.connected_remotes.remove(remote)
 
@@ -119,6 +128,15 @@ def create_sync_params(remote, request_initial_schema=True):
     apply_schema_list(params, schema_data)
 
   remote.sendSchemaEvent += onSchema
+
+  def onValue(path, value):
+    param = get_path(params, path)
+    if not param:
+      logging.warning('[create_sync_params.onValue] got invalid path: {}'.format(path))
+      return
+    param.set(value)
+
+  remote.sendValueEvent += onValue
 
   # request schema data
   if request_initial_schema:

@@ -43,13 +43,60 @@ class TestServer(unittest.TestCase):
 
     # before
     self.assertEqual(len(p1), 1)
-
-    # mutation
+    self.assertIsNone(p1.get('ranking'))
+    # mutation; a new parameter is added to pars
     pars.int('ranking')
 
-    # after
+    # after; verify the mutation is applied to r1's synced params
     self.assertEqual(len(p1), 2)
+    self.assertIsNotNone(p1.get('ranking'))
 
+  def test_disconnect(self):
+    # params
+    pars = Params()
+    pars.string('name').set('Abe')
+    # server
+    s = Server(pars)
+
+    # remote
+    r1 = Remote()
+    s.connect(r1)
+    p1 = create_sync_params(r1)
+
+    # before
+    self.assertEqual(p1.get('name').val(), 'Abe')
+
+    # action-1; param value change
+    pars.get('name').set('Bob')
+
+    # after-1; verify value change arrived at r1
+    self.assertEqual(p1.get('name').val(), 'Bob')
+
+    # action-1.1; r1 send value change
+    r1.valueEvent('/name', 'Cat')
+
+    # after-1; verify value change was processed by server
+    self.assertEqual(pars.get('name').val(), 'Cat')
+    # ... and was sent back to r1
+    self.assertEqual(p1.get('name').val(), 'Cat')
+
+
+    # action-2; param value changes AFTER r1 disconnects
+    s.disconnect(r1)
+    pars.get('name').set('Don')
+
+    # after-2; verify value change did NOT arrive at r1
+    self.assertEqual(p1.get('name').val(), 'Cat')
+
+    # action-2.1; r1 send value change
+    r1.valueEvent('/name', 'Eve')
+
+    # after-1; verify value change was NOT processed by server
+    self.assertEqual(pars.get('name').val(), 'Don')
+    # ... and was NOT sent back to r1
+    self.assertEqual(p1.get('name').val(), 'Cat')
+
+    
 
 
 # run just the tests in this file

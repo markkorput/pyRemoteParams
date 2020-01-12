@@ -12,6 +12,7 @@ class Param:
     self.changeEvent = Event()
 
   def set(self, value):
+    logger.debug('[Param.set value=`{}`]'.format(value))
     if self.equals(value, self.value):
       return
 
