@@ -52,6 +52,12 @@ class TestParams(unittest.TestCase):
     p2.int('foo')
     self.assertEqual(p.changeEvent._fireCount, 2)
 
+  def test_get(self):
+    params = Params()
+    param = params.bool('check')
+    self.assertEqual(params.get('check'), param)
+    self.assertIsNone(params.get('foo'))
+    
 # run just the tests in this file
 if __name__ == '__main__':
     unittest.main()
