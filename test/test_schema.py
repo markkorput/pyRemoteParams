@@ -1,11 +1,16 @@
 #!/usr/bin/env python
 import unittest
-from remote_params import Params, schema_list
+from remote_params import Params, schema_list, get_path
 
 class TestSchema(unittest.TestCase):
   def test_schema_list_empty(self):
     pars = Params()
     self.assertEqual(schema_list(pars), [])
+
+  def test_get_path_with_invalid_path(self):
+    pars = Params()
+    pars.string('foo')
+    self.assertIsNone(get_path(pars, '/bar'))
 
   def test_schema_list(self):
     pars = Params()

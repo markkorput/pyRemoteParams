@@ -85,6 +85,7 @@ class Params(list):
     self.schemaChangeEvent = Event()
     self.valueChangeEvent = Event()
     self.dict = {}
+    self._item_cleanups = {}
 
   def append(self, id, item):
     if id in self.dict:
@@ -92,6 +93,7 @@ class Params(list):
       return
 
     self.dict[id] = item
+    self._item_cleanups[id] = []
     list.append(self, [id, item])
 
     # a single param added?
@@ -100,6 +102,11 @@ class Params(list):
         self.changeEvent()
         self.valueChangeEvent('/'+id, item.val())
       item.changeEvent += onchange
+      
+      # record cleanup logic
+      def cleanup():
+        item.changeEvent -= onchange
+      self._item_cleanups[id].append(cleanup)
 
     # another sub-params-group added?
     if isinstance(item, Params):
@@ -108,15 +115,49 @@ class Params(list):
       def forwardValChange(path, val):
         self.valueChangeEvent('/'+id+path, val)
       item.valueChangeEvent += forwardValChange
-  
+
+      # record cleanup logic
+      def cleanup():
+        item.valueChangeEvent -= forwardValChange
+      self._item_cleanups[id].append(cleanup)
+
     self.schemaChangeEvent()
     self.changeEvent()
     return item
+
+  def remove(self, id, item):
+    if not id in self._item_cleanups or not id in self.dict:
+      logging.warning('[Params.remove] could not find item with id `{}` to remove'.format(id))
+      return
+
+    # cleanup
+    for func in self._item_cleanups[id]:
+      func()
+    del self._item_cleanups[id]
+    del self.dict[id]
+
+    # find pair te remove
+    for pair in self:
+      key, val = pair
+      if val == item:
+        list.remove(self, pair)
+
+    self.schemaChangeEvent()
+    self.changeEvent()
 
   def append_param(self, id, type_):
     p = Param(type_)
     self.append(id, p)
     return p
+
+  def remove_id(self, id):
+    if not id in self.dict:
+      logging.warning('[Params.remove_id] could not find item with id `{}` to remove'.format(id))
+      return
+
+    item = self.dict[id]
+    self.remove(id, item)
+
 
   def string(self, id):
     return self.append_param(id, 's')
@@ -134,13 +175,4 @@ class Params(list):
     self.append(id, params)
 
   def get(self, id):
-    return self.dict[id]
-
-  def get_path(self, path):
-    parts = path.split('/')[1:]
-    current = self
-
-    for p in parts:
-      current = current.get(p)
-
-    return current
+    return self.dict[id] if id in self.dict else None
