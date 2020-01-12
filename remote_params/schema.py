@@ -1,4 +1,5 @@
 from remote_params import Param, Params
+
 def schema_list(params):
   result = []
   for pair in params:
@@ -8,9 +9,8 @@ def schema_list(params):
 
 def schema_list_append(schema, scope, id, item):
   if isinstance(item, Param):
-    info = {'path': scope+id, 'type':item.type}
-    if item.is_initialized():
-      info['value'] = item.val()
+    info = item.to_dict()
+    info['path'] = scope+id
     schema.append(info)
     return
   
