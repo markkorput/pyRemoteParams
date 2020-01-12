@@ -77,7 +77,8 @@ def create_connection(server, remote):
   # add remote to server list
   server.connected_remotes.append(remote)
   def remove():
-    server.connected_remotes.remove(remote)
+    if remote in server.connected_remotes:
+      server.connected_remotes.remove(remote)
   cleanups.append(remove)
 
   # done, send confirmation to remote with schema data

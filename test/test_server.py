@@ -97,6 +97,16 @@ class TestServer(unittest.TestCase):
     self.assertEqual(p1.get('name').val(), 'Cat')
 
     
+  def test_disconnect_with_invalid_remote(self):
+    # params
+    pars = Params()
+    pars.string('name').set('Abe')
+    # server
+    s = Server(pars)
+
+    r = Remote()
+    s.disconnect(r)
+    s.disconnect(None)
 
 
 # run just the tests in this file

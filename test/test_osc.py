@@ -62,6 +62,14 @@ class TestOsc(unittest.TestCase):
     self.assertEqual(send_log, [
       ('127.0.0.1', 8081, '/params/schema', (json.dumps(schema_list(params))))])
 
+    #
+    # Client requests schema
+    #
+    send_log.clear()
+    osc_server.receive('/params/schema', ['192.168.1.2:8080'])
+    # verify response
+    self.assertEqual(send_log, [
+      ('192.168.1.2', 8080, '/params/schema', (json.dumps(schema_list(params))))])
 
 # run just the tests in this file
 if __name__ == '__main__':
