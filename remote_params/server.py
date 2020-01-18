@@ -112,7 +112,7 @@ class Server:
       func()
 
   def connect(self, remote):
-    logger.debug('[Server.disconnect]')
+    logger.debug('[Server.connect]')
 
     if remote in self.connections:
       logger.warning('[Server.connect] remote already connected')
