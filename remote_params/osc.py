@@ -174,13 +174,28 @@ class OscServer:
 
   def receive(self, addr, args):
     logger.debug('[OscServer.receive] addr={} args={}'.format(addr, args))
+
+    # Param value?
     if addr == self.value_addr:
       if len(args) == 2:
-        self.onValueReceived(args[0], args[1])
+        path = args[0]
+        value = args[1]
+        self.onValueReceived(path, value)
       else:
-        logger.warning('[OscServer.receive] received value message with invalid number ({}) of arguments: {}. Expecting two arguments (path and value)'.format(len(args), args))
+        logger.warning('[OscServer.receive] received value message ({}) with invalid number ({}) of arguments: {}. Expecting two arguments (path and value)'.format(addr,len(args), args))
       return
 
+    # Param value (with param ID in OSC address)
+    if addr.startswith(self.value_addr):
+      if len(args) == 1:
+        path = addr[len(self.value_addr):]
+        value = args[0]
+        self.onValueReceived(path, value)
+      else:
+        logger.warning('[OscServer.receive] received value message ({}) with invalid number ({}) of arguments: {}. Expecting one arguments (value)'.format(addr,len(args), args))
+      return      
+
+    # Connect request?
     if addr == self.connect_addr:
       if len(args) == 1:
         self.onConnect(args[0])
@@ -188,6 +203,7 @@ class OscServer:
         logger.warning('[OscServer.receive] got connect message without host/port info')
       return
     
+    # Schema request?
     if addr == self.schema_addr and len(args) == 1:
       self.onSchemaRequest(args[0])
 
