@@ -60,8 +60,8 @@ class Client:
 
 class Connection:
   '''
-  This responds to all server-to-client instructions from the Server
-  and translates them into OSC actions
+  The Connection class responds to all server-to-client
+  instructions from the Server and translates them into OSC actions
   '''
   def __init__(self, osc_server, id, connect=True):
     logger.debug('[Connection.__init__] id: {}'.format(id))
