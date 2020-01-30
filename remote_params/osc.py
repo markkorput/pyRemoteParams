@@ -1,6 +1,6 @@
 
-from oscpy.client import OSCClient
-from oscpy.server import OSCThreadServer
+from .oscpy.client import OSCClient
+
 import logging, json
 from .server import Remote
 from .schema import schema_list
@@ -109,22 +109,22 @@ class Connection:
     self.disconnect()
     self.client.sendDisconnect()
 
+def create_osc_listener(port=8000, callback=None):
+  '''
+  Create a threaded OSC server that listens for incoming UDP messages
+  '''
+  from .oscpy.server import OSCThreadServer
 
-def create_osc_listener(port=8000, callback=None, addresses=[]):
   logger.debug('[create_osc_listener port={}]'.format(port))
+
   def converter(addr, *args):
     logger.debug("[create_osc_listener.converter] addr={} args={}".format(addr, args))
     if callback:
       callback(addr.decode('utf-8'), args)
 
   osc = OSCThreadServer(advanced_matching=True, encoding='utf8')  # See sources for all the arguments
-
-  # You can also use an \*nix socket path here
   sock = osc.listen(address='0.0.0.0', port=port, default=True)
-  # osc.bind(b'/**', callback, get_address=True)
-
-  for addr in addresses:
-    osc.bind(bytes(addr, 'utf-8'), converter, get_address=True)
+  osc.bind_all(converter, get_address=True)
 
   def disconnect():
     osc.stop()  # Stop the default socket
@@ -155,12 +155,7 @@ class OscServer:
 
     self.disconnect_listener = None
     if listen:
-      server, disconnect = create_osc_listener(callback=self.receive, addresses=[
-        self.connect_addr,
-        self.disconnect_addr,
-        self.value_addr,
-        self.schema_addr
-      ])
+      server, disconnect = create_osc_listener(callback=self.receive)
 
       self.disconnect_listener = disconnect
 
@@ -179,13 +174,28 @@ class OscServer:
 
   def receive(self, addr, args):
     logger.debug('[OscServer.receive] addr={} args={}'.format(addr, args))
+
+    # Param value?
     if addr == self.value_addr:
       if len(args) == 2:
-        self.onValueReceived(args[0], args[1])
+        path = args[0]
+        value = args[1]
+        self.onValueReceived(path, value)
       else:
-        logger.warning('[OscServer.receive] received value message with invalid number ({}) of arguments: {}. Expecting two arguments (path and value)'.format(len(args), args))
+        logger.warning('[OscServer.receive] received value message ({}) with invalid number ({}) of arguments: {}. Expecting two arguments (path and value)'.format(addr,len(args), args))
       return
 
+    # Param value (with param ID in OSC address)
+    if addr.startswith(self.value_addr):
+      if len(args) == 1:
+        path = addr[len(self.value_addr):]
+        value = args[0]
+        self.onValueReceived(path, value)
+      else:
+        logger.warning('[OscServer.receive] received value message ({}) with invalid number ({}) of arguments: {}. Expecting one arguments (value)'.format(addr,len(args), args))
+      return      
+
+    # Connect request?
     if addr == self.connect_addr:
       if len(args) == 1:
         self.onConnect(args[0])
@@ -193,6 +203,7 @@ class OscServer:
         logger.warning('[OscServer.receive] got connect message without host/port info')
       return
     
+    # Schema request?
     if addr == self.schema_addr and len(args) == 1:
       self.onSchemaRequest(args[0])
 
@@ -225,12 +236,14 @@ if __name__ == '__main__':
   from .params import Params
   import time
 
+  logging.basicConfig(level=logging.DEBUG)
 
+  # Create params
   params = Params()
-  def log(val):
-    print(val)
+  def log(val): print(val)
   params.string('name').onchange(log)
 
+  # Create Server and Osc server
   osc_server = OscServer(Server(params))
 
   try:

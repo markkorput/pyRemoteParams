@@ -8,8 +8,9 @@ setup(name='remote_params',
       author_email='dr.theman@gmail.com',
       license='MIT',
       install_requires=[
-            'evento>=1.0.2',
-            'oscpy'],
+            'evento>=1.0.2'
+            # 'oscpy' # added embedded copy of oscpy, with some bind_all patch
+      ],
       zip_safe=True,
       test_suite='nose.collector',
       tests_require=['nose'],)
