@@ -1,7 +1,8 @@
 #!/usr/bin/env python
 import unittest
 import json
-from remote_params import Params, Server, Remote, create_sync_params, schema_list
+from remote_params import HttpServer, Params, Server, Remote, create_sync_params, schema_list
+
 
 # class TestOsc(unittest.TestCase):
 #   def test_osc_server_choreography(self):
@@ -10,43 +11,27 @@ from remote_params import Params, Server, Remote, create_sync_params, schema_lis
 # if __name__ == '__main__':
 #     unittest.main()
 
-import logging
-from remote_params.http import HttpServer as _HttpServer
-
-logger = logging.getLogger(__name__)
-
-class HttpServer:
-  def __init__(self, server, startServer=True):
-    self.server = server
-    self.remote = Remote()
-
-    # register our remote instance through which we'll
-    # inform the server about incoming information
-    if self.server and self.remote:
-      self.server.connect(self.remote)
-
-    self.httpServer = _HttpServer(start=False)
-    self.httpServer.requestEvent += self.onHttpRequest
-    
-    if startServer:
-      self.start()
-
-  def __del__(self):
-    if self.server and self.remote:
-      self.server.disconnect(self.remote)
-
-  def start(self):
-    self.httpServer.startServer()
-
-  def stop(self):
-    self.httpServer.stopServer()
-
-  def onHttpRequest(self, req):
-    logger.info('HTTP req: {}'.format(req))
-
-    req.respond(404, b'WIP')
-
 if __name__ == '__main__':
+  import logging
+  from optparse import OptionParser
+
+  def parse_args():
+    parser = OptionParser()
+    parser.add_option('-p', '--port', dest="port", default=4445, type='int')
+    parser.add_option('--host', dest="host", default='127.0.0.1')
+    parser.add_option('-s', '--show', dest="show", action='store_true', default=False)
+
+    parser.add_option('-v', '--verbose', dest="verbose", action='store_true', default=False)
+    parser.add_option('--verbosity', dest="verbosity", action='store_true', default='info')
+
+    opts, args = parser.parse_args()
+    lvl = {'debug': logging.DEBUG, 'info': logging.INFO, 'warning':logging.WARNING, 'error':logging.ERROR, 'critical':logging.CRITICAL}['debug' if opts.verbose else str(opts.verbosity).lower()]
+    logging.basicConfig(level=lvl)
+
+    return opts, args
+
+  opts, args = parse_args()
+
   params = Params()
   params.string('name')
   HttpServer(Server(params))
