@@ -12,9 +12,10 @@ from remote_params import HttpServer, Params, Server, Remote, create_sync_params
 #     unittest.main()
 
 if __name__ == '__main__':
-  import logging
+  import logging, time
   from optparse import OptionParser
 
+  logger = logging.getLogger(__name__)
   def parse_args():
     parser = OptionParser()
     parser.add_option('-p', '--port', dest="port", default=4445, type='int')
@@ -34,4 +35,13 @@ if __name__ == '__main__':
 
   params = Params()
   params.string('name')
-  HttpServer(Server(params))
+
+  http_server = HttpServer(Server(params))
+  try:
+    while True:
+      time.sleep(0.5)
+  except KeyboardInterrupt:
+    print("Received Ctrl+C... initiating exit")
+
+  http_server.stop()
+
