@@ -19,7 +19,7 @@
         } catch (e) {
           if (oError) onError(e);
           // console.log('Failed to create websocket : ', url);
-          return;
+          return false;
         }
 
         // Connection opened
@@ -27,18 +27,13 @@
             if (onOpen) onOpen(socket, event);
         });
 
-        // Listen for messages
-        socket.addEventListener('message', function (event) {
-            console.log('Message from server: ', event.data);
-        });
-
-        console.log('Socket created...');
-        done = true;
+        // console.log('Socket created...');
+        return true;
       }
 
       function tryConnect() {
         if (done || attempts > 5) return;
-        connect('ws://localhost:8081', function(socket, event){
+        let result = connect('ws://localhost:8081', function(socket, event){
           socket.onerror = function(evt) {
             console.log('socket error: ', evt);
           };
@@ -58,10 +53,16 @@
           }, 1000);  
 
           setTimeout(function(){
+            socket.send("GET /params/value");
+          }, 500);  
+
+          setTimeout(function(){
             socket.send("stop");
           }, 1500);
         });
-        setTimeout(tryConnect, 1000);
+
+        if (!result)
+          setTimeout(tryConnect, 1000);
       }
 
       tryConnect();

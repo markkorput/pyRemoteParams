@@ -57,8 +57,12 @@ class HttpServer:
       logger.debug('Responding with ui file: {}'.format(self.uiHtmlFilePath))
       req.respondWithFile(self.uiHtmlFilePath)
       # req.respond(200, b'TODO: respond with html file')
-
       return
+
+    if self.onPathRequest(req.path):
+      req.respond(200, b'ok')
+      return
+
     req.respond(404, b'WIP')
 
   def createWebsocketThread(self, port=8081, start=True):
@@ -88,7 +92,27 @@ class HttpServer:
         logger.info('Websocket connection stopped')
         ended = True
         continue
+
+      # fake some sort of HTTP-like format, so http server
+      # and websocket share the onPathRequest handler
+      if msg.startswith('GET /'):
+        path = msg[4:] # assume no query in the url
+        res = self.onPathRequest(path)
+        if res:
+          # respond 'OK: '+<original message>
+          await websocket.send('OK: {}'.format(msg))
+          continue
+
     
       logger.warn('Received unknown websocket message: {}'.format(msg))
       
 
+
+  def onPathRequest(self, path):
+    logger.info('onPathRequest: {}'.format(path))
+
+    if path == '/params/value':
+      # TODO
+      return True
+
+    return False
