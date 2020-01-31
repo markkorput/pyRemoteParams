@@ -59,7 +59,11 @@ class IntParam(Param):
       self.set(self.max)
       return
 
-    Param.set(self, int(v))
+    try:
+      Param.set(self, int(v))
+    except ValueError:
+      logger.warn('Param could not convert value to int: {}'.format(v))
+      pass
 
 class FloatParam(Param):
   def __init__(self, min=None, max=None):
@@ -78,7 +82,11 @@ class FloatParam(Param):
       self.set(self.max)
       return
 
-    Param.set(self, float(v))
+    try:
+      Param.set(self, float(v))
+    except ValueError:
+      logger.warn('FloatParam could not convert value to float: {}'.format(v))
+      pass
 
 def create_child(params, id, item):
   '''

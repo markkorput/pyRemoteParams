@@ -42,15 +42,15 @@
             console.log('Message from server: ', event.data);
           });
 
-          socket.send("Hello from UI!");
+          // socket.send("Hello from UI!");
 
-          setTimeout(function(){
-            socket.send("500ms");
-          }, 500);  
+          // setTimeout(function(){
+          //   socket.send("500ms");
+          // }, 500);  
 
-          setTimeout(function(){
-            socket.send("1000ms");
-          }, 1000);  
+          // setTimeout(function(){
+          //   socket.send("1000ms");
+          // }, 1000);  
 
           setTimeout(function(){
             socket.send("GET /params/value");

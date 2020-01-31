@@ -35,6 +35,9 @@ if __name__ == '__main__':
 
   params = Params()
   params.string('name')
+  params.float('score')
+  params.int('level')
+  params.bool('highest-score')
 
   http_server = HttpServer(Server(params))
   try:
