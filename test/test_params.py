@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 import unittest
-from remote_params import Param, Params
+from remote_params import Params, Param, IntParam
 
 class TestParams(unittest.TestCase):
   def test_string(self):
@@ -57,7 +57,27 @@ class TestParams(unittest.TestCase):
     param = params.bool('check')
     self.assertEqual(params.get('check'), param)
     self.assertIsNone(params.get('foo'))
-    
+
+class TestParam(unittest.TestCase):
+  def test_setter(self):
+    p = Param('f', setter=float)
+    p.set('5.50')
+    self.assertEqual(p.val(), 5.5)
+
+  def test_getter(self):
+    p = Param('f', getter=float)
+    p.set('5.50')
+    self.assertEqual(p.value, '5.50')
+    self.assertEqual(p.val(), 5.50)
+
+class TestIntParam(unittest.TestCase):
+  def test_set_with_invalid_value(self):
+    p = IntParam()
+    p.set(4)
+    self.assertEqual(p.val(), 4)
+    p.set('abc')
+    self.assertEqual(p.val(), 4)
+
 # run just the tests in this file
 if __name__ == '__main__':
     unittest.main()

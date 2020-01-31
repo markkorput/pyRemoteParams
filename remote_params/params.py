@@ -4,14 +4,19 @@ import logging
 logger = logging.getLogger(__name__)
 
 class Param:
-  def __init__(self, type_, default=None):
+  def __init__(self, type_, default=None, getter=None, setter=None):
     self.type = type_
     self.value = None
     self.default = default
+    self.getter = getter
+    self.setter = setter
 
     self.changeEvent = Event()
 
   def set(self, value):
+    if self.setter:
+      value = self.setter(value)
+      
     logger.debug('[Param.set value=`{}`]'.format(value))
     if self.equals(value, self.value):
       return
@@ -31,7 +36,8 @@ class Param:
     return self.value != None
 
   def val(self):
-    return self.value if self.is_initialized() else self.default
+    v = self.value if self.is_initialized() else self.default
+    return self.getter(v) if self.getter else v
 
   def to_dict(self):
     d = {'type': self.type}
