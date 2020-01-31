@@ -1,5 +1,5 @@
 from evento import Event
-import logging
+import logging, distutils
 
 logger = logging.getLogger(__name__)
 
@@ -9,8 +9,8 @@ class Param:
     self.value = None
     self.default = default
     self.opts = opts if opts else {}
-    self.getter = getter
-    self.setter = setter
+    self.getter = self._makeSafe(getter) if getter else None
+    self.setter = self._makeSafe(setter) if setter else None
 
     self.changeEvent = Event()
 
@@ -47,6 +47,16 @@ class Param:
     d.update(self.opts)
     return d
 
+  def _makeSafe(self, func):
+    def safeFunc(val):
+      try:
+        val = func(val)
+      except ValueError:
+        val = self.value
+
+      return val
+    return safeFunc
+
 def convertParamNumberVal(v, converter, fallback, opts):
   try:
     v = converter(v)
@@ -76,6 +86,7 @@ class FloatParam(Param):
 
   def convert(self, v):
     return convertParamNumberVal(v, float, self.value, self.opts)
+
 
 def create_child(params, id, item):
   '''
@@ -171,19 +182,22 @@ class Params(list):
     # run remover
     remover()
 
-  def append_param(self, id, type_):
-    p = Param(type_)
+  def append_param(self, id, type_, setter=None, opts={}):
+    p = Param(type_, setter=setter, opts=opts)
     self.append(id, p)
     return p
 
   def string(self, id):
-    return self.append_param(id, 's')
+    return self.append_param(id, 's', setter=str)
 
   def int(self, id, min=None, max=None):
     return self.append(id, IntParam(min, max))
 
   def bool(self, id):
-    return self.append_param(id, 'b')
+    def converter(v):
+      return distutils.util.strtobool(v) == 1
+
+    return self.append_param(id, 'b', setter=converter)
 
   def float(self, id, min=None, max=None):
     return self.append(id, FloatParam(min, max))

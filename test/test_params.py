@@ -9,11 +9,19 @@ class TestParams(unittest.TestCase):
     self.assertEqual(param.type, 's')
     self.assertTrue(isinstance(param, Param))
 
+    param.set(4)
+    self.assertEqual(param.val(), '4')
+
   def test_int(self):
     params = Params()
     param = params.int('age')
     self.assertEqual(param.type, 'i')
     self.assertTrue(isinstance(param, Param))
+
+    param.set('4')
+    self.assertEqual(param.val(), 4)
+    param.set('zzz')
+    self.assertEqual(param.val(), 4)
 
   def test_bool(self):
     params = Params()
@@ -21,11 +29,25 @@ class TestParams(unittest.TestCase):
     self.assertEqual(param.type, 'b')
     self.assertTrue(isinstance(param, Param))
 
+    param.set('true')
+    self.assertEqual(param.val(), True)
+    param.set('xxx')
+    self.assertEqual(param.val(), True)
+    param.set('false')
+    self.assertEqual(param.val(), False)
+    param.set('yyy')
+    self.assertEqual(param.val(), False)
+
   def test_float(self):
     params = Params()
     param = params.float('value')
     self.assertEqual(param.type, 'f')
     self.assertTrue(isinstance(param, Param))
+
+    param.set('4.81')
+    self.assertEqual(param.val(), 4.81)
+    param.set('zzz')
+    self.assertEqual(param.val(), 4.81)
 
   def test_group(self):
     p = Params()
@@ -71,7 +93,7 @@ class TestParam(unittest.TestCase):
     self.assertEqual(p.val(), 5.50)
 
   def test_opts(self):
-    p = Param('f', opts={'minlength': 3})
+    p = Param('s', opts={'minlength': 3})
     self.assertEqual(p.opts, {'minlength': 3})
 
 class TestIntParam(unittest.TestCase):
