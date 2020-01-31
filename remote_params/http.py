@@ -13,6 +13,9 @@ class HttpServer:
     self.server = server
     self.remote = Remote()
 
+    self.remote.sendValueEvent += self.onValueFromServer
+    self.remote.sendSchemaEvent += self.onSchemaFromServer
+
     # register our remote instance through which we'll
     # inform the server about incoming information
     if self.server and self.remote:
@@ -22,7 +25,8 @@ class HttpServer:
     self.httpServer.requestEvent += self.onHttpRequest
 
     self.websocketServerThread = None
-    
+    self.activeWebsockets = set()
+
     self.uiHtmlFilePath = os.path.abspath(os.path.join(os.path.dirname(__file__),'ui.html'))
 
     if startServer:
@@ -31,6 +35,10 @@ class HttpServer:
   def __del__(self):
     if self.server and self.remote:
       self.server.disconnect(self.remote)
+
+    self.remote.sendValueEvent -= self.onValueFromServer
+    self.remote.sendSchemaEvent -= self.onSchemaFromServer
+
 
   def start(self):
     logger.info('Starting HTTP server on port: {}'.format(self.httpServer.port))
@@ -78,63 +86,78 @@ class HttpServer:
       thread.start()
     return thread
 
+
   async def _websockconnectionfunc(self, websocket, path):
     logging.info('New websocket connection...')
+    await self.register(websocket)
 
-    def onValueFromServer(path, val):
-      msg = 'POST {}?value={}'.format(path, val)
-      logger.info('Sending value to websocket remote: {}'.format(msg))
-      websocket.send(msg)
-      # await websocket.send(msg)
+    try:
+      await websocket.send("welcome to pyRemoteParams websockets")
+      async for msg in websocket:
+        if msg == 'stop':
+          logger.info('Websocket connection stopped')
+          websocket.close()
 
-    def onSchemaFromServer(schemadata):
-      msg = 'POST schema.json?schema={}'.format(json.dumps(schemadata))
-      logger.info('Sending schema data to websocket remote: {}'.format(msg))
-      websocket.send(msg)
+        elif msg.startswith('GET schema.json'):
+          logger.info('Got schema request ({})'.format('GET schema.json'))
+          data = schema_list(self.server.params)
+          msg = 'POST schema.json?schema={}'.format(json.dumps(data))
+          logger.info('Responding to schema request ({})'.format(msg))
+          await websocket.send(msg)
 
-    self.remote.sendValueEvent += onValueFromServer
-    self.remote.sendSchemaEvent += onSchemaFromServer
+        # POST <param-path>?value=<value>
+        elif msg.startswith('POST /') and '?value=' in msg:
+          no_prefix = msg[len('POST '):] # assume no query in the url
+          path, val = no_prefix.split('?value=')
+          logger.info('Setting value received from remote: {} = {}'.format(path, val))
+          self.remote.valueEvent(path, val)
 
-    await websocket.send("welcome to pyRemoteParams websockets")
+        # # fake some sort of HTTP-like format, so http server
+        # # and websocket share the onPathRequest handler
+        # elif msg.startswith('GET /'):
+        #   path = msg[4:] # assume no query in the url
+        #   res = self.onGetRequest(path)
+        #   if res:
+        #     # respond 'OK: '+<original message>
+        #     await websocket.send('OK: {}'.format(msg))
+        #   else:
 
-    ended = False
-    while not ended:
-      # msg = await asyncio.wait_for(websocket.recv(), timeout=1.0)
-      msg = await websocket.recv()
+        else:
+          logger.warn('Received unknown websocket message: {}'.format(msg))
+    except websockets.exceptions.ConnectionClosedError:
+      logger.info('Connection closed.')
+    finally:
+      await self.unregister(websocket)
 
-      if msg == 'stop':
-        logger.info('Websocket connection stopped')
-        ended = True
-        continue
+  async def register(self, websocket):
+    self.activeWebsockets.add(websocket)
+    logger.info('registered websocket, {} active'.format(len(self.activeWebsockets)))
 
-      if msg.startswith('GET schema.json'):
-        logger.info('Got schema request ({})'.format('GET schema.json'))
-        data = schema_list(self.server.params)
-        msg = 'POST schema.json?schema={}'.format(json.dumps(data))
-        logger.info('Responding to schema request ({})'.format(msg))
-        await websocket.send(msg)
-        continue
-
-      # POST <param-path>?value=<value>
-      if msg.startswith('POST /') and '?value=' in msg:
-        no_prefix = msg[len('POST '):] # assume no query in the url
-        path, val = no_prefix.split('?value=')
-        logger.info('Setting value received from remote: {} = {}'.format(path, val))
-        self.remote.valueEvent(path, val)
-        continue
-
-      # fake some sort of HTTP-like format, so http server
-      # and websocket share the onPathRequest handler
-      if msg.startswith('GET /'):
-        path = msg[4:] # assume no query in the url
-        res = self.onGetRequest(path)
-        if res:
-          # respond 'OK: '+<original message>
-          await websocket.send('OK: {}'.format(msg))
-          continue
+  async def unregister(self, websocket):
     
-      logger.warn('Received unknown websocket message: {}'.format(msg))
+    self.activeWebsockets.remove(websocket)
+    logger.info('unregistered websocket, {} left'.format(len(self.activeWebsockets)))
 
+  def onValueFromServer(self, path, val):
+    msg = 'POST {}?value={}'.format(path, val)
+
+    async def send():
+      logger.info('Sending value to {} websocket remote(s): {}'.format(len(self.activeWebsockets), msg))
+      for websocket in self.activeWebsockets:      
+        
+        websocket.send(msg)
+
+      asyncio.wait(send)
+
+  def onSchemaFromServer(self, schemadata):
+    msg = 'POST schema.json?schema={}'.format(json.dumps(schemadata))
+
+    async def send():
+      logger.info('Sending schema to {} websocket remote(s): {}'.format(len(self.activeWebsockets), msg))
+      for websocket in self.activeWebsockets:
+        websocket.send(msg)
+
+      asyncio.wait(send)
 
   def onGetRequest(self, path):
     logger.info('onPathRequest: {}'.format(path))
