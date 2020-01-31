@@ -139,25 +139,27 @@ class HttpServer:
     logger.info('unregistered websocket, {} left'.format(len(self.activeWebsockets)))
 
   def onValueFromServer(self, path, val):
+    logger.debug('onValueFromServer(path={}, val={})'.format(path, val))
     msg = 'POST {}?value={}'.format(path, val)
 
-    async def send():
+    def send():
       logger.info('Sending value to {} websocket remote(s): {}'.format(len(self.activeWebsockets), msg))
-      for websocket in self.activeWebsockets:      
-        
+      for websocket in self.activeWebsockets:
         websocket.send(msg)
 
-      asyncio.wait(send)
+    # asyncio.wait(send)
+    # asyncio.get_event_loop.run_until_complete(send())
+    send()
 
   def onSchemaFromServer(self, schemadata):
     msg = 'POST schema.json?schema={}'.format(json.dumps(schemadata))
 
-    async def send():
+    def send():
       logger.info('Sending schema to {} websocket remote(s): {}'.format(len(self.activeWebsockets), msg))
       for websocket in self.activeWebsockets:
         websocket.send(msg)
 
-      asyncio.wait(send)
+    asyncio.wait(send)
 
   def onGetRequest(self, path):
     logger.info('onPathRequest: {}'.format(path))
