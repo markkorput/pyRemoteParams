@@ -4,10 +4,11 @@ import logging
 logger = logging.getLogger(__name__)
 
 class Param:
-  def __init__(self, type_, default=None, getter=None, setter=None):
+  def __init__(self, type_, default=None, opts={}, getter=None, setter=None):
     self.type = type_
     self.value = None
     self.default = default
+    self.opts = opts if opts else {}
     self.getter = getter
     self.setter = setter
 
@@ -43,56 +44,38 @@ class Param:
     d = {'type': self.type}
     if self.is_initialized():
       d['value'] = self.value
+    d.update(self.opts)
     return d
+
+def convertParamNumberVal(v, converter, fallback, opts):
+  try:
+    v = converter(v)
+  except ValueError:
+    logger.warn('Param could not convert value to int: {}'.format(v))
+    v = fallback
+
+  if v and 'min' in opts and opts['min'] and v < opts['min']:
+    v = opts['min']
+  elif v and 'max' in opts and opts['min'] and v > opts['max']:
+    v = opts['max']
+
+  return v
 
 class IntParam(Param):
   def __init__(self, min=None, max=None):
-    Param.__init__(self, 'i')
-    self.min = int(min) if min != None else None
-    self.max = int(max) if max != None else None
+    Param.__init__(self, 'i', opts={'min':min, 'max':max}, setter=self.convert)
 
-  def to_dict(self):
-    d = Param.to_dict(self)
-    if self.min != None: d['min'] = self.min
-    if self.max != None: d['max'] = self.max
-    return d
-
-  def set(self, v):
-    if self.min != None and v < self.min:
-      self.set(self.min)
-      return
-    if self.max != None and v > self.max:
-      self.set(self.max)
-      return
-
-    try:
-      Param.set(self, int(v))
-    except ValueError:
-      logger.warn('Param could not convert value to int: {}'.format(v))
-      pass
+  def convert(self, v):
+    return convertParamNumberVal(v, int, self.value, self.opts)
 
 class FloatParam(Param):
   def __init__(self, min=None, max=None):
-    Param.__init__(self, 'f')
-    self.min = float(min) if min != None else None
-    self.max = float(max) if max != None else None
+    Param.__init__(self, 'f',
+      opts={'min':min, 'max':max},
+      setter=self.convert)
 
-  def to_dict(self):
-    return IntParam.to_dict(self)
-
-  def set(self, v):
-    if self.min != None and v < self.min:
-      self.set(self.min)
-      return
-    if self.max != None and v > self.max:
-      self.set(self.max)
-      return
-
-    try:
-      Param.set(self, float(v))
-    except ValueError:
-      logger.warn('FloatParam could not convert value to float: {}'.format(v))
-      pass
+  def convert(self, v):
+    return convertParamNumberVal(v, float, self.value, self.opts)
 
 def create_child(params, id, item):
   '''

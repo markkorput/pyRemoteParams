@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 import unittest
-from remote_params import Params, Param, IntParam
+from remote_params import Params, Param, IntParam, FloatParam
 
 class TestParams(unittest.TestCase):
   def test_string(self):
@@ -70,6 +70,10 @@ class TestParam(unittest.TestCase):
     self.assertEqual(p.value, '5.50')
     self.assertEqual(p.val(), 5.50)
 
+  def test_opts(self):
+    p = Param('f', opts={'minlength': 3})
+    self.assertEqual(p.opts, {'minlength': 3})
+
 class TestIntParam(unittest.TestCase):
   def test_set_with_invalid_value(self):
     p = IntParam()
@@ -77,6 +81,26 @@ class TestIntParam(unittest.TestCase):
     self.assertEqual(p.val(), 4)
     p.set('abc')
     self.assertEqual(p.val(), 4)
+    p.set('05')
+    self.assertEqual(p.val(), 5)
+
+  def test_to_dict(self):
+    p = IntParam(min=5, max=10)
+    self.assertEqual(p.to_dict(), {'type':'i', 'min':5, 'max':10})
+
+class TestFloatParam(unittest.TestCase):
+  def test_set_with_invalid_value(self):
+    p = FloatParam()
+    p.set(4.0)
+    self.assertEqual(p.val(), 4.0)
+    p.set('abc')
+    self.assertEqual(p.val(), 4.0)
+    p.set('05')
+    self.assertEqual(p.val(), 5.0)
+
+  def test_to_dict(self):
+    p = IntParam(min=5, max=10)
+    self.assertEqual(p.to_dict(), {'type':'i', 'min':5, 'max':10})
 
 # run just the tests in this file
 if __name__ == '__main__':
