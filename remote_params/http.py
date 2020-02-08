@@ -8,73 +8,29 @@ logger = logging.getLogger(__name__)
 
 import asyncio, websockets, threading
 
-class HttpServer:
-  def __init__(self, server, port=8080, startServer=True):
+class WebsocketServer:
+  def __init__(self, server: Server, port: int=8081, start: bool=True):
     self.server = server
-    self.remote = Remote()
+    self.port = port
+    self.thread = None
+    self.sockets = set()
 
+    self.remote = Remote()
     self.remote.sendValueEvent += self.onValueFromServer
     self.remote.sendSchemaEvent += self.onSchemaFromServer
 
-    # register our remote instance through which we'll
-    # inform the server about incoming information
-    if self.server and self.remote:
-      self.server.connect(self.remote)
-
-    self.httpServer = UtilHttpServer(port=port, start=False)
-    self.httpServer.requestEvent += self.onHttpRequest
-
-    self.websocketServerThread = None
-    self.activeWebsockets = set()
-
-    self.uiHtmlFilePath = os.path.abspath(os.path.join(os.path.dirname(__file__),'ui.html'))
-
-    if startServer:
+    if start:
       self.start()
 
   def __del__(self):
-    if self.server and self.remote:
-      self.server.disconnect(self.remote)
-
+    self.stop()
     self.remote.sendValueEvent -= self.onValueFromServer
     self.remote.sendSchemaEvent -= self.onSchemaFromServer
 
-
   def start(self):
-    logger.info('Starting HTTP server on port: {}'.format(self.httpServer.port))
-    self.httpServer.startServer()
-    
-    logger.info('Starting Websockets server on port {}'.format(self.httpServer.port+1))
-    self.websocketServerThread = self.createWebsocketThread(self.httpServer.port+1)
+    self.server.connect(self.remote)
 
-  def stop(self):
-    if self.websocketServerThread:
-      logger.debug('Trying to stop websocket thread')
-      asyncio.get_event_loop().stop()
-      self.websocketServerThread.join()
-      logger.debug('Websocket thread stopped')
-      self.websocketServer = None
-
-    self.httpServer.stopServer()
-
-  def onHttpRequest(self, req):
-    # logger.info('HTTP req: {}'.format(req))
-    # logger.info('HTTP req path: {}'.format(req.path))
-
-    if req.path == '/':
-      logger.debug('Responding with ui file: {}'.format(self.uiHtmlFilePath))
-      req.respondWithFile(self.uiHtmlFilePath)
-      # req.respond(200, b'TODO: respond with html file')
-      return
-
-    if self.onGetRequest(req.path):
-      req.respond(200, b'ok')
-      return
-
-    req.respond(404, b'WIP')
-
-  def createWebsocketThread(self, port=8081, start=True):
-    action = websockets.serve(self._websockconnectionfunc, "127.0.0.1", port)
+    action = websockets.serve(self.connectionFunc, "127.0.0.1", self.port)
     eventloop = asyncio.get_event_loop()
 
     def func():
@@ -82,14 +38,23 @@ class HttpServer:
       eventloop.run_forever()
 
     thread = threading.Thread(target=func)
-    if start:
-      thread.start()
-    return thread
+    thread.start()
 
+  def stop(self):
+    self.server.disconnect(self.remote)
 
-  async def _websockconnectionfunc(self, websocket, path):
+    if not self.thread:
+      return
+    
+    logger.debug('Trying to stop WebsocketServer thread')
+    asyncio.get_event_loop().stop()
+    self.thread.join()
+    self.thread = None
+    logger.debug('WebsocketServer thread stopped')
+
+  async def connectionFunc(self, websocket, path):
     logging.info('New websocket connection...')
-    await self.register(websocket)
+    self.register(websocket)
 
     try:
       await websocket.send("welcome to pyRemoteParams websockets")
@@ -102,70 +67,103 @@ class HttpServer:
           logger.info('Got schema request ({})'.format('GET schema.json'))
           data = schema_list(self.server.params)
           msg = 'POST schema.json?schema={}'.format(json.dumps(data))
-          logger.info('Responding to schema request ({})'.format(msg))
+          logger.debug('Responding to schema request ({})'.format(msg))
           await websocket.send(msg)
 
         # POST <param-path>?value=<value>
         elif msg.startswith('POST /') and '?value=' in msg:
           no_prefix = msg[len('POST '):] # assume no query in the url
           path, val = no_prefix.split('?value=')
-          logger.info('Setting value received from remote: {} = {}'.format(path, val))
+          logger.info('Value received via websocket: {} = {}'.format(path, val))
           self.remote.valueEvent(path, val)
-
-        # # fake some sort of HTTP-like format, so http server
-        # # and websocket share the onPathRequest handler
-        # elif msg.startswith('GET /'):
-        #   path = msg[4:] # assume no query in the url
-        #   res = self.onGetRequest(path)
-        #   if res:
-        #     # respond 'OK: '+<original message>
-        #     await websocket.send('OK: {}'.format(msg))
-        #   else:
 
         else:
           logger.warn('Received unknown websocket message: {}'.format(msg))
     except websockets.exceptions.ConnectionClosedError:
       logger.info('Connection closed.')
     finally:
-      await self.unregister(websocket)
+      self.unregister(websocket)
 
-  async def register(self, websocket):
-    self.activeWebsockets.add(websocket)
-    logger.info('registered websocket, {} active'.format(len(self.activeWebsockets)))
+  def register(self, websocket):
+    self.sockets.add(websocket)
+    logger.debug('registered websocket, {} active'.format(len(self.sockets)))
 
-  async def unregister(self, websocket):
-    
-    self.activeWebsockets.remove(websocket)
-    logger.info('unregistered websocket, {} left'.format(len(self.activeWebsockets)))
+  def unregister(self, websocket):
+    self.sockets.remove(websocket)
+    logger.debug('unregistered websocket, {} left'.format(len(self.sockets)))
+
+  async def sendToAllConnectedSockets(self, msg):
+    logger.debug('sendToAllConnectedSockets: {} websocket remote(s): {}'.format(msg, len(self.sockets)))
+    for websocket in self.sockets:
+      await websocket.send(msg)
 
   def onValueFromServer(self, path, val):
+    """
+    This method gets called when our Remote instance gets notified by Server
+    instance, about a param value-change. We'll send out the value-change
+    to all connected websockets.
+    """
     logger.debug('onValueFromServer(path={}, val={})'.format(path, val))
     msg = 'POST {}?value={}'.format(path, val)
-
-    def send():
-      logger.info('Sending value to {} websocket remote(s): {}'.format(len(self.activeWebsockets), msg))
-      for websocket in self.activeWebsockets:
-        websocket.send(msg)
-
-    # asyncio.wait(send)
-    # asyncio.get_event_loop.run_until_complete(send())
-    send()
+    asyncio.ensure_future(self.sendToAllConnectedSockets(msg))
 
   def onSchemaFromServer(self, schemadata):
+    """
+    This method gets called when our Remote instance gets notified by Server
+    instance, about a schema change. We'll send out the schmea change
+    to all connected websockets.
+    """
     msg = 'POST schema.json?schema={}'.format(json.dumps(schemadata))
+    asyncio.ensure_future(self.sendToAllConnectedSockets(msg))
 
-    def send():
-      logger.info('Sending schema to {} websocket remote(s): {}'.format(len(self.activeWebsockets), msg))
-      for websocket in self.activeWebsockets:
-        websocket.send(msg)
 
-    asyncio.wait(send)
+class HttpServer:
+  def __init__(self, server, port=8080, startServer=True):
+    self.server = server
+    self.remote = Remote()
 
-  def onGetRequest(self, path):
-    logger.info('onPathRequest: {}'.format(path))
+    # register our remote instance through which we'll
+    # inform the server about incoming information
+    if self.server and self.remote:
+      self.server.connect(self.remote)
 
-    if path == '/params/value':
+    self.httpServer = UtilHttpServer(port=port, start=False)
+    self.httpServer.requestEvent += self.onHttpRequest
+
+    self.websocketServer = None
+
+    self.uiHtmlFilePath = os.path.abspath(os.path.join(os.path.dirname(__file__),'ui.html'))
+
+    if startServer:
+      self.start()
+
+  def __del__(self):
+    if self.server and self.remote:
+      self.server.disconnect(self.remote)
+
+  def start(self):
+    logger.info('Starting HTTP server on port: {}'.format(self.httpServer.port))
+    self.httpServer.startServer()
+    
+    logger.info('Starting Websockets server on port {}'.format(self.httpServer.port+1))
+    self.websocketServer = WebsocketServer(self.server, self.httpServer.port+1)
+
+  def stop(self):
+    self.httpServer.stopServer()
+
+  def onHttpRequest(self, req):
+    # logger.info('HTTP req: {}'.format(req))
+    # logger.info('HTTP req path: {}'.format(req.path))
+
+    if req.path == '/':
+      logger.debug('Responding with ui file: {}'.format(self.uiHtmlFilePath))
+      req.respondWithFile(self.uiHtmlFilePath)
+      # req.respond(200, b'TODO: respond with html file')
+      return
+
+    if req.path == '/params/value':
       # TODO
-      return True
+      req.respond(404, b'TODO: responding to HTTP requests not yet implemented')
 
-    return False
+    req.respond(404, b'WIP')
+
