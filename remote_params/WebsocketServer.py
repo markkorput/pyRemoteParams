@@ -4,8 +4,10 @@ logger = logging.getLogger(__name__)
 import asyncio, websockets, threading
 from remote_params import Params, Server, Remote, schema_list #, create_sync_params, schema_list
 
+DEFAULT_PORT = 8081
+
 class WebsocketServer:
-  def __init__(self, server: Server, port: int=8081, start: bool=True):
+  def __init__(self, server: Server, port: int=DEFAULT_PORT, start: bool=True):
     self.server = server
     self.port = port
     self.thread = None
@@ -49,32 +51,20 @@ class WebsocketServer:
     logger.debug('WebsocketServer thread stopped')
 
   async def connectionFunc(self, websocket, path):
+    """
+    This method is ran for every incoming websocket connection.
+    It'll register the websocket (add it to the internal list of sockets)
+    And await incoming messages (basically be the async server/receiver for this)
+    specific websocket and process incoming schema requests and value changes.
+    """
+
     logging.info('New websocket connection...')
     self.register(websocket)
 
     try:
       await websocket.send("welcome to pyRemoteParams websockets")
       async for msg in websocket:
-        if msg == 'stop':
-          logger.info('Websocket connection stopped')
-          websocket.close()
-
-        elif msg.startswith('GET schema.json'):
-          logger.info('Got schema request ({})'.format('GET schema.json'))
-          data = schema_list(self.server.params)
-          msg = 'POST schema.json?schema={}'.format(json.dumps(data))
-          logger.debug('Responding to schema request ({})'.format(msg))
-          await websocket.send(msg)
-
-        # POST <param-path>?value=<value>
-        elif msg.startswith('POST /') and '?value=' in msg:
-          no_prefix = msg[len('POST '):] # assume no query in the url
-          path, val = no_prefix.split('?value=')
-          logger.info('Value received via websocket: {} = {}'.format(path, val))
-          self.remote.valueEvent(path, val)
-
-        else:
-          logger.warn('Received unknown websocket message: {}'.format(msg))
+        await self.onMessage(msg, websocket)
     except websockets.exceptions.ConnectionClosedError:
       logger.info('Connection closed.')
     finally:
@@ -88,7 +78,40 @@ class WebsocketServer:
     self.sockets.remove(websocket)
     logger.debug('unregistered websocket, {} left'.format(len(self.sockets)))
 
+  async def onMessage(self, msg, websocket):
+    """
+    onMessage is called with the connectionFunc to process
+    incoming message from a specific websocket.
+    """
+
+    if msg == 'stop':
+      logger.info('Websocket connection stopped')
+      websocket.close()
+      return
+
+    if msg.startswith('GET schema.json'):
+      logger.info('Got websocket schema request ({})'.format('GET schema.json'))
+      # immediately respond
+      data = schema_list(self.server.params)
+      msg = 'POST schema.json?schema={}'.format(json.dumps(data))
+      logger.debug('Websocket schema request response: ({})'.format(msg))
+      await websocket.send(msg)
+      return
+
+    # POST <param-path>?value=<value>
+    if msg.startswith('POST /') and '?value=' in msg:
+      no_prefix = msg[len('POST '):] # assume no query in the url
+      path, val = no_prefix.split('?value=')
+      logger.info('Value received via websocket: {} = {}'.format(path, val))
+      self.remote.valueEvent(path, val)
+      return
+
+    logger.warn('Received unknown websocket message: {}'.format(msg))
+
   async def sendToAllConnectedSockets(self, msg):
+    """
+    This method broadcasts the given msg to all connected websockets
+    """
     logger.debug('sendToAllConnectedSockets: {} websocket remote(s): {}'.format(msg, len(self.sockets)))
     for websocket in self.sockets:
       await websocket.send(msg)
@@ -112,3 +135,38 @@ class WebsocketServer:
     msg = 'POST schema.json?schema={}'.format(json.dumps(schemadata))
     asyncio.ensure_future(self.sendToAllConnectedSockets(msg))
 
+if __name__ == '__main__':
+  import time
+  from optparse import OptionParser
+
+  def parse_args():
+    parser = OptionParser()
+    parser.add_option('-p', '--port', dest="port", default=8081, type='int')
+
+    parser.add_option('-v', '--verbose', dest="verbose", action='store_true', default=False)
+    parser.add_option('--verbosity', dest="verbosity", action='store_true', default='info')
+
+    opts, args = parser.parse_args()
+    lvl = {'debug': logging.DEBUG, 'info': logging.INFO, 'warning':logging.WARNING, 'error':logging.ERROR, 'critical':logging.CRITICAL}['debug' if opts.verbose else str(opts.verbosity).lower()]
+    logging.basicConfig(level=lvl)
+    return opts, args
+
+  opts, args = parse_args()
+
+
+  logger.info(f'Starting websocket server on port: {opts.port}')
+  # Create some vars to test with
+  params = Params()
+  params.string('name')
+  params.float('score')
+  params.int('level')
+  params.bool('highest-score')
+
+  s = WebsocketServer(Server(params), port=opts.port)
+  try:
+    while True:
+      time.sleep(0.5)
+  except KeyboardInterrupt:
+    print("Received Ctrl+C... initiating exit")
+
+  s.stop()
