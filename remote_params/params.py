@@ -17,7 +17,7 @@ class Param:
   def set(self, value):
     if self.setter:
       value = self.setter(value)
-      
+
     logger.debug('[Param.set value=`{}`]'.format(value))
     if self.equals(value, self.value):
       return
@@ -57,35 +57,46 @@ class Param:
       return val
     return safeFunc
 
-def convertParamNumberVal(v, converter, fallback, opts):
+
+def convertParamNumberVal(v, converter, fallback, opts={}):
   try:
     v = converter(v)
   except ValueError:
-    logger.warn('Param could not convert value to int: {}'.format(v))
+    logger.warning('Param could not convert value to int: {}'.format(v))
     v = fallback
 
   if v and 'min' in opts and opts['min'] and v < opts['min']:
     v = opts['min']
-  elif v and 'max' in opts and opts['min'] and v > opts['max']:
+  elif v and 'max' in opts and opts['max'] and v > opts['max']:
     v = opts['max']
 
   return v
 
 class IntParam(Param):
   def __init__(self, min=None, max=None):
-    Param.__init__(self, 'i', opts={'min':min, 'max':max}, setter=self.convert)
+    opts = {}
+    if min != None: opts['min'] = convertParamNumberVal(min, int, None)
+    if max != None: opts['max'] = convertParamNumberVal(max, int, None)
+    Param.__init__(self, 'i', opts=opts, setter=self.convert)
 
   def convert(self, v):
     return convertParamNumberVal(v, int, self.value, self.opts)
 
 class FloatParam(Param):
   def __init__(self, min=None, max=None):
+    opts = {}
+    if min != None: opts['min'] = convertParamNumberVal(min, float, None)
+    if max != None: opts['max'] = convertParamNumberVal(max, float, None)
+
     Param.__init__(self, 'f',
-      opts={'min':min, 'max':max},
+      opts=opts,
       setter=self.convert)
 
   def convert(self, v):
-    return convertParamNumberVal(v, float, self.value, self.opts)
+    print(f'converting: {v} with {self.opts}')
+    vv = convertParamNumberVal(v, float, self.value, self.opts)
+    print(f'converting after: {vv}')
+    return vv
 
 
 def create_child(params, id, item):
@@ -195,7 +206,7 @@ class Params(list):
 
   def bool(self, id):
     def converter(v):
-      return distutils.util.strtobool(v) == 1
+      return v if type(v) == type(True) else distutils.util.strtobool(v) == 1
 
     return self.append_param(id, 'b', setter=converter)
 
