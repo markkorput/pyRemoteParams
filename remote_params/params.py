@@ -42,9 +42,13 @@ class Param:
 
   def to_dict(self):
     d = {'type': self.type}
+
     if self.is_initialized():
       d['value'] = self.value
-    d.update(self.opts)
+
+    if self.opts and len(self.opts) > 0:
+      d['opts'] = self.opts
+
     return d
 
   def _makeSafe(self, func):

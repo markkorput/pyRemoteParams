@@ -159,6 +159,7 @@ if __name__ == '__main__':
   params = Params()
   params.string('name')
   params.float('score')
+  params.float('range', min=0.0, max=100.0)
   params.int('level')
   params.bool('highest-score')
 

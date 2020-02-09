@@ -108,7 +108,7 @@ class TestIntParam(unittest.TestCase):
 
   def test_to_dict(self):
     p = IntParam(min=5, max=10)
-    self.assertEqual(p.to_dict(), {'type':'i', 'min':5, 'max':10})
+    self.assertEqual(p.to_dict(), {'type':'i', 'opts':{'min':5, 'max':10}})
 
 class TestFloatParam(unittest.TestCase):
   def test_set_with_invalid_value(self):
@@ -122,7 +122,7 @@ class TestFloatParam(unittest.TestCase):
 
   def test_to_dict(self):
     p = IntParam(min=5, max=10)
-    self.assertEqual(p.to_dict(), {'type':'i', 'min':5, 'max':10})
+    self.assertEqual(p.to_dict(), {'type':'i', 'opts': {'min':5, 'max':10}})
 
 # run just the tests in this file
 if __name__ == '__main__':
