@@ -12,6 +12,8 @@ setup(name='remote_params',
             # 'oscpy' # added embedded copy of oscpy, with some bind_all patch
             'websockets>=8.1'
       ],
-      zip_safe=True,
+      zip_safe=False,
+      include_package_data=True,
       test_suite='nose.collector',
-      tests_require=['nose'],)
+      tests_require=['nose'],
+      )
