@@ -10,6 +10,11 @@ Python remote_params package lets you add (remote) GUI controlable parameters to
 pip install remote_params
 ```
 
+## Run tests
+```shell
+python setup.py test
+```
+
 ## Usage
 
 ```python
