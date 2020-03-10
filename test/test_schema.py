@@ -60,8 +60,8 @@ class TestSchema(unittest.TestCase):
     pars.float('price', min=0.0, max=1.0).set(9.99)
 
     self.assertEqual(schema_list(pars), [
-      {'path': '/count', 'type':'i', 'value':3, 'min':3, 'max':10},
-      {'path': '/price', 'type':'f', 'value':1.0, 'min':0.0, 'max':1.0},
+      {'path': '/count', 'type':'i', 'value':3, 'opts': {'min':3, 'max':10}},
+      {'path': '/price', 'type':'f', 'value':1.0, 'opts': {'min':0.0, 'max':1.0}},
     ])
 
 # run just the tests in this file

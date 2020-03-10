@@ -1,0 +1,73 @@
+<html>
+  <head>
+
+  </head>
+  <body>
+    <h1>UI</h1>
+    <script>
+      let done = false;
+      let attempts = 0;
+
+      function connect(url, onOpen, onError) {
+        console.log('connect...');
+        // Create WebSocket connection.
+        let socket = undefined;
+        attempts += 1;
+
+        try {
+          socket = new WebSocket(url);
+        } catch (e) {
+          if (oError) onError(e);
+          // console.log('Failed to create websocket : ', url);
+          return false;
+        }
+
+        // Connection opened
+        socket.addEventListener('open', function (event) {
+            if (onOpen) onOpen(socket, event);
+        });
+
+        // console.log('Socket created...');
+        return true;
+      }
+
+      function tryConnect() {
+        if (done || attempts > 5) return;
+        let result = connect('ws://localhost:8081', function(socket, event){
+          socket.onerror = function(evt) {
+            console.log('socket error: ', evt);
+          };
+
+          socket.addEventListener('message', function (event) {
+            console.log('Message from server: ', event.data);
+          });
+
+          // socket.send("Hello from UI!");
+
+          // setTimeout(function(){
+          //   socket.send("500ms");
+          // }, 500);  
+
+          // setTimeout(function(){
+          //   socket.send("1000ms");
+          // }, 1000);  
+
+          setTimeout(function(){
+            socket.send("GET /params/value");
+          }, 500);  
+
+          setTimeout(function(){
+            socket.send("stop");
+          }, 1500);
+        });
+
+        if (!result)
+          setTimeout(tryConnect, 1000);
+      }
+
+      tryConnect();
+
+      console.log('script end');
+</script>
+  </body>
+</html>

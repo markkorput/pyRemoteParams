@@ -139,7 +139,7 @@ class Server:
       r.send_schema(schema_data)
 
   def broadcast_value_change(self, path, value):
-    logger.debug('[Server.broadcast_value_change]')
+    logger.debug('[Server.broadcast_value_change] to {} connected remotes'.format(len(self.connected_remotes)))
     for r in self.connected_remotes:
       r.send_value(path, value)
 
