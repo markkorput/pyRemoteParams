@@ -135,7 +135,12 @@ class WebsocketServer:
     msg = 'POST schema.json?schema={}'.format(json.dumps(schemadata))
     asyncio.ensure_future(self.sendToAllConnectedSockets(msg))
 
+
+
 if __name__ == '__main__':
+  '''
+  Example: serve a couple of params
+  '''
   import time
   from optparse import OptionParser
 
@@ -157,7 +162,7 @@ if __name__ == '__main__':
   logger.info(f'Starting websocket server on port: {opts.port}')
   # Create some vars to test with
   params = Params()
-  params.string('name')
+  params.string('name').set('John Doe')
   params.float('score')
   params.float('range', min=0.0, max=100.0)
   params.int('level')
