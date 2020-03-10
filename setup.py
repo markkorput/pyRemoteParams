@@ -5,7 +5,7 @@ with open(os.path.join(os.path.dirname(__name__), 'README.md')) as f:
     long_description = f.read()
 
 setup(name='remote_params',
-      version='0.0.1',
+      version='0.0.2',
       description='Remote controllable params',
       long_description=long_description,
       long_description_content_type='text/markdown',
@@ -18,8 +18,8 @@ setup(name='remote_params',
             # 'oscpy' # added embedded copy of oscpy, with bind_all patch
             'websockets>=8.1'
       ],
-      zip_safe=False,
-      include_package_data=True,
+      zip_safe=True,
+      # include_package_data=True,
       test_suite='nose.collector',
       tests_require=['nose'],
       classifiers=[
