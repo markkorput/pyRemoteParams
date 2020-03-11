@@ -16,8 +16,8 @@ setup(name='remote_params',
       license='MIT',
       install_requires=[
             'evento>=1.0.2',
-            # 'oscpy' # added embedded copy of oscpy, with bind_all patch
-            'websockets>=8.1'
+            'websockets>=8.1',
+            'oscpy>=0.5.0'
       ],
       zip_safe=True,
       # include_package_data=True,

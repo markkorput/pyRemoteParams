@@ -113,7 +113,7 @@ def create_osc_listener(port=8000, callback=None):
   '''
   Create a threaded OSC server that listens for incoming UDP messages
   '''
-  from .oscpy.server import OSCThreadServer
+  from oscpy.server import OSCThreadServer
 
   logger.debug('[create_osc_listener port={}]'.format(port))
 
