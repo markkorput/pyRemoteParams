@@ -1,5 +1,5 @@
 
-from .oscpy.client import OSCClient
+from oscpy.client import OSCClient
 
 import logging, json
 from .server import Remote
@@ -122,9 +122,10 @@ def create_osc_listener(port=8000, callback=None):
     if callback:
       callback(addr.decode('utf-8'), args)
 
-  osc = OSCThreadServer(advanced_matching=True, encoding='utf8')  # See sources for all the arguments
+  osc = OSCThreadServer(advanced_matching=True, encoding='utf8', default_handler=converter)  # See sources for all the arguments
   sock = osc.listen(address='0.0.0.0', port=port, default=True)
-  osc.bind_all(converter, get_address=True)
+
+  # osc.bind_all(converter, get_address=True)
 
   def disconnect():
     osc.stop()  # Stop the default socket
