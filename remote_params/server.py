@@ -94,8 +94,9 @@ def create_connection(server, remote):
   return disconnect
 
 class Server:
-  def __init__(self, params):
+  def __init__(self, params, queueIncomingValuesUntilUpdate=False):
     self.params = params
+    self.queueIncomingValuesUntilUpdate=queueIncomingValuesUntilUpdate
     self.connected_remotes = []
 
     self.connections = {}
@@ -103,6 +104,8 @@ class Server:
     self.cleanups = []
     self.cleanups.append(self.params.schemaChangeEvent.add(self.broadcast_schema))
     self.cleanups.append(self.params.valueChangeEvent.add(self.broadcast_value_change))
+
+    self.updateFuncs = []
 
   def __del__(self):
     for r in self.connected_remotes:
@@ -132,6 +135,11 @@ class Server:
     disconnector()
     del self.connections[remote]
 
+  def update(self):
+    for f in self.updateFuncs:
+      f()
+    self.updateFuncs.clear()    
+
   def broadcast_schema(self):
     logger.debug('[Server.broadcast_schema]')
     schema_data = schema_list(self.params)
@@ -144,12 +152,19 @@ class Server:
       r.send_value(path, value)
 
   def handle_remote_value_change(self, remote, path, value):
-    logger.debug('[Server.handle_remote_value_change]')
-    param = get_path(self.params, path)
-    if not param:
-      logger.warning('[Server.handle_remote_value_change] unknown path: {}'.format(path))
+    def processNow():
+      logger.debug('[Server.handle_remote_value_change]')
+      param = get_path(self.params, path)
+      if not param:
+        logger.warning('[Server.handle_remote_value_change] unknown path: {}'.format(path))
+        return
+      param.set(value)
+
+    if self.queueIncomingValuesUntilUpdate:
+      self.updateFuncs.append(processNow)
       return
-    param.set(value)
+
+    processNow()
 
   def handle_remote_schema_request(self, remote):
     logger.debug('[Server.handle_remote_schema_request]')
