@@ -217,6 +217,9 @@ class Params(list):
   def float(self, id, min=None, max=None):
     return self.append(id, FloatParam(min, max))
 
+  def void(self, id):
+    return self.append_param(id, 'v')
+
   def group(self, id, params):
     self.append(id, params)
 

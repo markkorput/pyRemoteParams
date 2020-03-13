@@ -49,6 +49,17 @@ class TestParams(unittest.TestCase):
     param.set('zzz')
     self.assertEqual(param.val(), 4.81)
 
+  def test_void(self):
+    p = Params()
+    exitparam = p.void('exit')
+    self.assertEqual(exitparam.to_dict()['type'], 'v')
+
+    exits = []
+    exitparam.onchange(exits.append)
+    self.assertEqual(len(exits), 0)
+    exitparam.set(None)
+    self.assertEqual(len(exits), 0)
+
   def test_group(self):
     p = Params()
     self.assertEqual(len(p), 0)
