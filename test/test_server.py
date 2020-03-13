@@ -117,14 +117,14 @@ class TestServer(unittest.TestCase):
     r1 = Remote()
     s.connect(r1)
     
-    # remote send value change event
+    # remote sends value change event
     r1.valueEvent('/name', 'Bob')
-    self.assertEqual(pars.get('name').val(), 'Abe') # incoming value NOT effectuated yet
+    # incoming value NOT effectuated yet (operation queued)
+    self.assertEqual(pars.get('name').val(), 'Abe')
+    # process queued operations
     s.update()
-    self.assertEqual(pars.get('name').val(), 'Bob') # incoming value NOT effectuated yet
-
-    
-
+    # incoming value effectuated 
+    self.assertEqual(pars.get('name').val(), 'Bob') 
 
 # run just the tests in this file
 if __name__ == '__main__':
