@@ -95,7 +95,6 @@ class TestServer(unittest.TestCase):
     self.assertEqual(pars.get('name').val(), 'Don')
     # ... and was NOT sent back to r1
     self.assertEqual(p1.get('name').val(), 'Cat')
-
     
   def test_disconnect_with_invalid_remote(self):
     # params
@@ -107,6 +106,24 @@ class TestServer(unittest.TestCase):
     r = Remote()
     s.disconnect(r)
     s.disconnect(None)
+
+  def test_option_queueIncomingValuesUntilUpdate(self):
+    # params
+    pars = Params()
+    pars.string('name').set('Abe')
+    # server
+    s = Server(pars, queueIncomingValuesUntilUpdate=True)
+    # remote
+    r1 = Remote()
+    s.connect(r1)
+    
+    # remote send value change event
+    r1.valueEvent('/name', 'Bob')
+    self.assertEqual(pars.get('name').val(), 'Abe') # incoming value NOT effectuated yet
+    s.update()
+    self.assertEqual(pars.get('name').val(), 'Bob') # incoming value NOT effectuated yet
+
+    
 
 
 # run just the tests in this file
