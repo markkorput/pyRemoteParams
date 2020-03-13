@@ -210,7 +210,7 @@ class Params(list):
 
   def bool(self, id):
     def converter(v):
-      return v if type(v) == type(True) else distutils.util.strtobool(v) == 1
+      return v if type(v) == type(True) else (distutils.util.strtobool(v) == 1 if 'util' in dir(distutils) else str(v) in ['True', 'true', '1'])
 
     return self.append_param(id, 'b', setter=converter)
 
