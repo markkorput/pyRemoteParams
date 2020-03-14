@@ -58,7 +58,28 @@ class TestParams(unittest.TestCase):
     exitparam.onchange(exits.append)
     self.assertEqual(len(exits), 0)
     exitparam.set(None)
+    self.assertEqual(len(exits), 1)
+    exitparam.set('foo')
+    self.assertEqual(len(exits), 2)
+    exitparam.trigger()
+    self.assertEqual(len(exits), 3)
+
+  def test_void_argumentless_callback(self):
+    p = Params()
+    exitparam = p.void('exit')
+    self.assertEqual(exitparam.to_dict()['type'], 'v')
+
+    exits = []
+    def func():
+      print('func: {}'.format(len(exits)))
+      exits.append('func')
+    
+    exitparam.ontrigger(func)
     self.assertEqual(len(exits), 0)
+    exitparam.trigger()
+    self.assertEqual(len(exits), 1)
+    self.assertEqual(exits[-1], 'func')
+
 
   def test_group(self):
     p = Params()

@@ -22,7 +22,9 @@ class Param:
     if self.equals(value, self.value):
       return
 
+    
     self.value = value
+    logger.debug('[Param.set] changevent')
     self.changeEvent()
 
   def equals(self, v1, v2):
@@ -60,7 +62,6 @@ class Param:
 
       return val
     return safeFunc
-
 
 def convertParamNumberVal(v, converter, fallback, opts={}):
   try:
@@ -102,6 +103,21 @@ class FloatParam(Param):
     print(f'converting after: {vv}')
     return vv
 
+class VoidParam(Param):
+  def __init__(self):
+    Param.__init__(self, 'v')
+    self.value = 0
+
+  def set(self, *value):
+    logger.debug('VoidParam.set')
+    Param.set(self, self.value + 1)
+
+  def trigger(self):
+    self.set(None)
+
+  def ontrigger(self, func):
+    logger.debug('VoidParam.ontrigger')
+    self.changeEvent += func
 
 def create_child(params, id, item):
   '''
@@ -218,7 +234,7 @@ class Params(list):
     return self.append(id, FloatParam(min, max))
 
   def void(self, id):
-    return self.append_param(id, 'v')
+    return self.append(id, VoidParam())
 
   def group(self, id, params):
     self.append(id, params)

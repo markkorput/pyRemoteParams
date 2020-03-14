@@ -166,12 +166,23 @@ if __name__ == '__main__':
   params.float('range', min=0.0, max=100.0)
   params.int('level')
   params.bool('highest-score')
+  voidParam = params.void('stop')
+
+  doExit = False
+  def exitNow():
+    print('exitNow')
+    global doExit
+    doExit = True
+  
+  voidParam.ontrigger(exitNow)
 
   s = WebsocketServer(Server(params), port=opts.port)
   try:
-    while True:
+    while not doExit:
+      voidParam.onchange(exit)
       time.sleep(0.5)
   except KeyboardInterrupt:
     print("Received Ctrl+C... initiating exit")
 
+  print('Stopping...')
   s.stop()
