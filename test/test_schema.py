@@ -1,6 +1,6 @@
 #!/usr/bin/env python
-import unittest
-from remote_params import Params, schema_list, get_path
+import unittest, json
+from remote_params import Params, schema_list, get_values, get_path
 
 class TestSchema(unittest.TestCase):
   def test_schema_list_empty(self):
@@ -63,6 +63,21 @@ class TestSchema(unittest.TestCase):
       {'path': '/count', 'type':'i', 'value':3, 'opts': {'min':3, 'max':10}},
       {'path': '/price', 'type':'f', 'value':1.0, 'opts': {'min':0.0, 'max':1.0}},
     ])
+
+  def test_get_values(self):
+    pars = Params()
+    pars.int('count').set(1)
+    pars.float('price').set(9.99)
+
+    vals = get_values(pars)
+
+    self.assertEqual(vals['count'], 1)
+    self.assertEqual(vals['price'], 9.99)
+    self.assertEqual(json.loads(json.dumps(vals))['count'], 1)
+    self.assertEqual(json.loads(json.dumps(vals))['price'], 9.99)
+
+    pars.get('count').set(100)
+    self.assertEqual(get_values(pars)['count'], 100)
 
 # run just the tests in this file
 if __name__ == '__main__':

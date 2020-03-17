@@ -111,3 +111,17 @@ def apply_schema_list(params, schema_data):
 
   add_new_items_and_values(params, schema_data)
   remove_items_not_in_schema_list(params, schema_data)
+
+def get_values(params):
+  values = {}
+
+  for pair in params:
+    id, item = pair
+
+    if isinstance(item, Param):
+      values[id] = item.val()
+    
+    if isinstance(item, Params):
+      values[id] = get_values(item)
+
+  return values

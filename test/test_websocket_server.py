@@ -1,7 +1,6 @@
 
 #!/usr/bin/env python
 import unittest
-import json
 from remote_params import HttpServer, Params, Server, Remote, create_sync_params, schema_list
 
 from remote_params.WebsocketServer import WebsocketServer
