@@ -125,3 +125,16 @@ def get_values(params):
       values[id] = get_values(item)
 
   return values
+
+def set_values(params, vals):
+  for k, v in vals.items():
+    param = params.get(k)
+
+    if param is None:
+      continue
+
+    if type(v) is dict:
+      set_values(param, v)
+    else:
+      param.set(v)
+
