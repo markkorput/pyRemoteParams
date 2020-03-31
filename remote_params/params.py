@@ -4,6 +4,16 @@ import logging, distutils
 logger = logging.getLogger(__name__)
 
 class Param:
+
+  class InvalidValue(ValueError):
+    def __init__(self, value):
+      ValueError.__init__(self, "Invalid value: {}".format(value))
+      self.value = value
+
+    @classmethod
+    def isInvalid(cls, value):
+      return isinstance(value, cls)
+
   def __init__(self, type_, default=None, opts={}, getter=None, setter=None):
     self.type = type_
     self.value = None
@@ -16,12 +26,15 @@ class Param:
 
   def set(self, value):
     if self.setter:
-      value = self.setter(value)
+      settervalue = self.setter(value)
+      if Param.InvalidValue.isInvalid(settervalue):
+        logger.warning('[Param.set value={}] InvalidValue'.format(value))
+        return
+      value = settervalue
 
     logger.debug('[Param.set value=`{}`]'.format(value))
     if self.equals(value, self.value):
       return
-
     
     self.value = value
     logger.debug('[Param.set] changevent')
@@ -226,7 +239,15 @@ class Params(list):
 
   def bool(self, id):
     def converter(v):
-      return v if type(v) == type(True) else (distutils.util.strtobool(v) == 1 if 'util' in dir(distutils) else str(v) in ['True', 'true', '1'])
+      if type(v) == type(True) or type(v) == type(False):
+        return v
+      if str(v).lower() in ['true', '1', 'yes', 'y']:
+        return True
+      if str(v).lower() in ['false', '0', 'no', 'n']:
+        return False
+      return Param.InvalidValue(v)
+
+      # if distutils.util.strtobool(v) == 1 if 'util' in dir(distutils) else str(v) in ['True', 'true', '1'])
 
     return self.append_param(id, 'b', setter=converter)
 

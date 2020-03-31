@@ -31,12 +31,19 @@ class TestParams(unittest.TestCase):
 
     param.set('true')
     self.assertEqual(param.val(), True)
-    param.set('xxx')
+    self.assertEqual(param.changeEvent._fireCount, 1)
+
+    param.set('xxx') # will not change the value
     self.assertEqual(param.val(), True)
+    self.assertEqual(param.changeEvent._fireCount, 1)
+
     param.set('false')
     self.assertEqual(param.val(), False)
-    param.set('yyy')
+    self.assertEqual(param.changeEvent._fireCount, 2)
+
+    param.set('yyy') # will not change the value
     self.assertEqual(param.val(), False)
+    self.assertEqual(param.changeEvent._fireCount, 2)
 
   def test_float(self):
     params = Params()
