@@ -174,12 +174,11 @@ if __name__ == '__main__':
     global doExit
     doExit = True
   
-  voidParam.ontrigger(exitNow)
+  # voidParam.ontrigger(exitNow)
 
   s = WebsocketServer(Server(params), port=opts.port)
   try:
     while not doExit:
-      voidParam.onchange(exit)
       time.sleep(0.5)
   except KeyboardInterrupt:
     print("Received Ctrl+C... initiating exit")
