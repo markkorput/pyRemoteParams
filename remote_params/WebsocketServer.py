@@ -7,8 +7,9 @@ from remote_params import Params, Server, Remote, schema_list #, create_sync_par
 DEFAULT_PORT = 8081
 
 class WebsocketServer:
-  def __init__(self, server: Server, port: int=DEFAULT_PORT, start: bool=True):
+  def __init__(self, server: Server, host: str='0.0.0.0', port: int=DEFAULT_PORT, start: bool=True):
     self.server = server
+    self.host = host
     self.port = port
     self.thread = None
     self.sockets = set()
@@ -28,7 +29,7 @@ class WebsocketServer:
   def start(self):
     self.server.connect(self.remote)
 
-    action = websockets.serve(self.connectionFunc, "127.0.0.1", self.port)
+    action = websockets.serve(self.connectionFunc, self.host, self.port)
     eventloop = asyncio.get_event_loop()
 
     def func():
@@ -147,6 +148,7 @@ if __name__ == '__main__':
   def parse_args():
     parser = OptionParser()
     parser.add_option('-p', '--port', default=8081, type='int')
+    parser.add_option('-h', '--host', default='0.0.0.0')
 
     parser.add_option('-v', '--verbose', action='store_true', default=False)
     parser.add_option('--verbosity', action='store_true', default='info')
@@ -176,7 +178,7 @@ if __name__ == '__main__':
   
   # voidParam.ontrigger(exitNow)
 
-  s = WebsocketServer(Server(params), port=opts.port)
+  s = WebsocketServer(Server(params), host=opts.host, port=opts.port)
   try:
     while not doExit:
       time.sleep(0.5)
