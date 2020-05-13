@@ -148,7 +148,7 @@ if __name__ == '__main__':
   def parse_args():
     parser = OptionParser()
     parser.add_option('-p', '--port', default=8081, type='int')
-    parser.add_option('-h', '--host', default='0.0.0.0')
+    parser.add_option('--host', default='0.0.0.0')
 
     parser.add_option('-v', '--verbose', action='store_true', default=False)
     parser.add_option('--verbosity', action='store_true', default='info')
