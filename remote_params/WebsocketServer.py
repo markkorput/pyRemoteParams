@@ -15,16 +15,16 @@ class WebsocketServer:
     self.sockets = set()
 
     self.remote = Remote()
-    self.remote.sendValueEvent += self.onValueFromServer
-    self.remote.sendSchemaEvent += self.onSchemaFromServer
+    self.remote.outgoing.sendValueEvent += self.onValueFromServer
+    self.remote.outgoing.sendSchemaEvent += self.onSchemaFromServer
 
     if start:
       self.start()
 
   def __del__(self):
     self.stop()
-    self.remote.sendValueEvent -= self.onValueFromServer
-    self.remote.sendSchemaEvent -= self.onSchemaFromServer
+    self.remote.outgoing.sendValueEvent -= self.onValueFromServer
+    self.remote.outgoing.sendSchemaEvent -= self.onSchemaFromServer
 
   def start(self):
     self.server.connect(self.remote)
@@ -139,9 +139,10 @@ class WebsocketServer:
 
 
 if __name__ == '__main__':
-  '''
-  Example: serve a couple of params
-  '''
+  """
+  Example: serve bunch of params
+  """
+
   import time
   from optparse import OptionParser
 
@@ -169,6 +170,16 @@ if __name__ == '__main__':
   params.int('level')
   params.bool('highest-score')
   voidParam = params.void('stop')
+
+  gr = Params()
+  gr.string('name').set('Jane Doe')
+  gr.float('score')
+  gr.float('range', min=0.0, max=100.0)
+  gr.int('level')
+  gr.bool('highest-score')
+
+  params.group('parner', gr)
+  
 
   doExit = False
   def exitNow():

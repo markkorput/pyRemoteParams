@@ -21,12 +21,12 @@ class TestServer(unittest.TestCase):
       r2_value_log.append((path, val))
     
     r2 = Remote()
-    r2.sendValueEvent += onval
+    r2.outgoing.sendValueEvent += onval
     s.connect(r2)
 
     self.assertEqual(r2_value_log, [])
     # remote r1 send value change to server
-    r1.valueEvent('/age', 41)
+    r1.incoming.valueEvent('/age', 41)
     # verify the change was broadcasted to r2
     self.assertEqual(r2_value_log, [('/age', 41)])
   
@@ -73,7 +73,7 @@ class TestServer(unittest.TestCase):
     self.assertEqual(p1.get('name').val(), 'Bob')
 
     # action-1.1; r1 send value change
-    r1.valueEvent('/name', 'Cat')
+    r1.incoming.valueEvent('/name', 'Cat')
 
     # after-1; verify value change was processed by server
     self.assertEqual(pars.get('name').val(), 'Cat')
@@ -89,7 +89,7 @@ class TestServer(unittest.TestCase):
     self.assertEqual(p1.get('name').val(), 'Cat')
 
     # action-2.1; r1 send value change
-    r1.valueEvent('/name', 'Eve')
+    r1.incoming.valueEvent('/name', 'Eve')
 
     # after-1; verify value change was NOT processed by server
     self.assertEqual(pars.get('name').val(), 'Don')
@@ -118,7 +118,7 @@ class TestServer(unittest.TestCase):
     s.connect(r1)
     
     # remote sends value change event
-    r1.valueEvent('/name', 'Bob')
+    r1.incoming.valueEvent('/name', 'Bob')
     # incoming value NOT effectuated yet (operation queued)
     self.assertEqual(pars.get('name').val(), 'Abe')
     # process queued operations

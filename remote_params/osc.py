@@ -71,10 +71,10 @@ class Connection:
     self.isActive = self.client.isValid and connect
 
     r = Remote()
-    r.sendConnectConfirmationEvent += self.onConnectConfimToRemote
-    r.sendValueEvent += self.onValueToRemote
-    r.sendSchemaEvent += self.onSchemaToRemote
-    r.sendDisconnectEvent += self.onDisconnectToRemote
+    r.outgoing.sendConnectConfirmationEvent += self.onConnectConfimToRemote
+    r.outgoing.sendValueEvent += self.onValueToRemote
+    r.outgoing.sendSchemaEvent += self.onSchemaToRemote
+    r.outgoing.sendDisconnectEvent += self.onDisconnectToRemote
     self.remote = r
 
     if self.isActive:
@@ -226,7 +226,7 @@ class OscServer:
   def onValueReceived(self, path, value):
     logger.debug('[OscServer.onValueReceived path={} value={}]'.format(path, value))
     # pass it on to the server through our remote instance
-    self.remote.valueEvent(path, value)
+    self.remote.incoming.valueEvent(path, value)
   
   def onSchemaRequest(self, responseInfo):
     Client(self, responseInfo).sendSchema(schema_list(self.server.params))
