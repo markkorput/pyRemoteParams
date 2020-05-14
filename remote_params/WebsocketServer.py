@@ -44,7 +44,7 @@ class WebsocketServer:
 
     if not self.thread:
       return
-    
+
     logger.debug('Trying to stop WebsocketServer thread')
     asyncio.get_event_loop().stop()
     self.thread.join()
@@ -104,7 +104,7 @@ class WebsocketServer:
       no_prefix = msg[len('POST '):] # assume no query in the url
       path, val = no_prefix.split('?value=')
       logger.info('Value received via websocket: {} = {}'.format(path, val))
-      self.remote.valueEvent(path, val)
+      self.remote.incoming.valueEvent(path, val)
       return
 
     logger.warn('Received unknown websocket message: {}'.format(msg))
@@ -130,12 +130,11 @@ class WebsocketServer:
   def onSchemaFromServer(self, schemadata):
     """
     This method gets called when our Remote instance gets notified by Server
-    instance, about a schema change. We'll send out the schmea change
+    instance, about a schema change. We'll send out the schema change
     to all connected websockets.
     """
     msg = 'POST schema.json?schema={}'.format(json.dumps(schemadata))
     asyncio.ensure_future(self.sendToAllConnectedSockets(msg))
-
 
 
 if __name__ == '__main__':
