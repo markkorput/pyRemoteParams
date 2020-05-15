@@ -44,6 +44,11 @@ class App:
 
         await asyncio.sleep(0.05)
 
+        key = cv2.waitKey(10) & 0xFF
+
+        if key == 27 or key == ord('q'): # escape or Q
+          break
+
     except KeyboardInterrupt:
       print("Received Ctrl+C... initiating exit")
 
@@ -54,7 +59,9 @@ class App:
     ret, frame = self.cap.read()
     if not ret:
       return
-
+    print('setting new image...')
+    frame = cv2.resize(frame, (300,200), interpolation=cv2.INTER_AREA)
+    cv2.imshow('cam', frame)
     self.imageParam.set(frame)
 
 def parse_args():

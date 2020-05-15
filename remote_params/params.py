@@ -40,10 +40,12 @@ class Param:
       if Param.InvalidValue.isInvalid(settervalue):
         logger.warning('[Param.set value={}] InvalidValue'.format(value))
         return
+
       value = settervalue
 
-    logger.debug('[Param.set value=`{}`]'.format(value))
+    # logger.debug('[Param.set value=`{}`]'.format(value))
     if self.equals(value, self.value):
+      # logger.debug('equal')
       return
     
     self.value = value
@@ -147,13 +149,16 @@ class ImageParam(Param):
   def convert(self, v):
     if cv2 is not None and np is not None:
       if type(v) == type(np.array([])):
-        imparams = [cv2.IMWRITE_PNG_COMPRESSION, 9] # TODO: make configurable
-        ret, img_str = cv2.imencode('.png', v, imparams)
+        # imparams = [cv2.IMWRITE_PNG_COMPRESSION, 9] # TODO: make configurable
+        ret, img = cv2.imencode('.png', v) #, imparams)
+        
         if not ret:
           logger.warning('cv2.imencode failed to encode image into png format')
           return None
-        print(f'Encoded image {len(img_str.tostring())}bytes')
-        return img_str.tostring()
+
+        png_str = str(img.tostring()) #str(img_str)
+        logger.debug(f'Encoded image {len(png_str)}-bytes')
+        return png_str
 
     # no supported image processor 
     return None
