@@ -7,6 +7,16 @@ from remote_params import Params, Server, Remote, schema_list #, create_sync_par
 DEFAULT_PORT = 8081
 
 class WebsocketServer:
+  """
+  Connect a private Remote instance on a given params.Server instance
+  Accepts new websocket connections.
+  Broadcasts any value and schema change notifications from the server
+  to all connected client at that moment.
+  Forwards any value change from a connected client to the server.
+  Respond to schema requests from a connected client with the schema
+  schema information for the server's params.
+  """
+
   def __init__(self, server: Server, host: str='0.0.0.0', port: int=DEFAULT_PORT, start: bool=True):
     self.server = server
     self.host = host
@@ -15,8 +25,8 @@ class WebsocketServer:
     self.sockets = set()
 
     self.remote = Remote()
-    self.remote.outgoing.sendValueEvent += self.onValueFromServer
-    self.remote.outgoing.sendSchemaEvent += self.onSchemaFromServer
+    self.remote.outgoing.sendValueEvent += self._onValueFromServer
+    self.remote.outgoing.sendSchemaEvent += self._onSchemaFromServer
 
     self._ws_server = None
 
@@ -25,13 +35,17 @@ class WebsocketServer:
 
   def __del__(self):
     self.stop()
-    self.remote.outgoing.sendValueEvent -= self.onValueFromServer
-    self.remote.outgoing.sendSchemaEvent -= self.onSchemaFromServer
+    self.remote.outgoing.sendValueEvent -= self._onValueFromServer
+    self.remote.outgoing.sendSchemaEvent -= self._onSchemaFromServer
 
   def start(self):
+    """
+    Connect private Remote instance to server
+    Start websockets server coroutine in a separate thread
+    """
     self.server.connect(self.remote)
 
-    async_action = websockets.serve(self.connectionFunc, self.host, self.port)
+    async_action = websockets.serve(self._connectionFunc, self.host, self.port)
     
     eventloop = asyncio.get_event_loop()
 
@@ -43,11 +57,30 @@ class WebsocketServer:
     self.thread.start()
 
   async def start_async(self):
+    """
+    Connect private Remote instance to server
+    Start websockets server coroutine.
+
+    Returns
+    -------
+    websocket WebsocketServer instance
+    """
     self.server.connect(self.remote)
-    self._ws_server = await websockets.serve(self.connectionFunc, self.host, self.port)
+    self._ws_server = await websockets.serve(self._connectionFunc, self.host, self.port)
     return self._ws_server
 
   def stop(self, joinThread=True):
+    """
+    
+    Disconnect private remote instance form server.
+    Closes start WebsocketServer is any.
+    Wait for spawned thread to end if any and if `joinThread` is True.
+
+    Parameter
+    ---------
+    joinThread: boolean
+      When True, will wait for started thread to finish 
+    """
     self.server.disconnect(self.remote)
 
     if self._ws_server:
@@ -64,37 +97,31 @@ class WebsocketServer:
     self.thread = None
     logger.debug('WebsocketServer thread stopped')
 
-  async def connectionFunc(self, websocket, path):
+  async def _connectionFunc(self, websocket, path):
     """
-    This method is ran for every incoming websocket connection.
-    It'll register the websocket (add it to the internal list of sockets)
-    And await incoming messages (basically be the async server/receiver for this)
-    specific websocket and process incoming schema requests and value changes.
+    This method runs for every incoming websocket connection.
+    It registers the websocket (add it to self.sockets)
+    It awaits and processes incoming messages
+    It removes the websocket from self.sockets when the connection is closed
     """
-
     logging.info('New websocket connection...')
-    self.register(websocket)
+    self.sockets.add(websocket)
+    logger.debug('registered websocket, {} active'.format(len(self.sockets)))
 
     try:
       await websocket.send("welcome to pyRemoteParams websockets")
       async for msg in websocket:
-        await self.onMessage(msg, websocket)
+        await self._onMessage(msg, websocket)
     except websockets.exceptions.ConnectionClosedError:
       logger.info('Connection closed.')
     except KeyboardInterrupt:
       logger.warning('KeyboardInterrupt in WebsocketServer connectionFunc')
     finally:
-      self.unregister(websocket)
+      self.sockets.remove(websocket)
 
-  def register(self, websocket):
-    self.sockets.add(websocket)
-    logger.debug('registered websocket, {} active'.format(len(self.sockets)))
+      logger.debug('unregistered websocket, {} left'.format(len(self.sockets)))
 
-  def unregister(self, websocket):
-    self.sockets.remove(websocket)
-    logger.debug('unregistered websocket, {} left'.format(len(self.sockets)))
-
-  async def onMessage(self, msg, websocket):
+  async def _onMessage(self, msg, websocket):
     """
     onMessage is called with the connectionFunc to process
     incoming message from a specific websocket.
@@ -124,15 +151,7 @@ class WebsocketServer:
 
     logger.warning('Received unknown websocket message: {}'.format(msg))
 
-  async def sendToAllConnectedSockets(self, msg):
-    """
-    This method broadcasts the given msg to all connected websockets
-    """
-    logger.debug('sendToAllConnectedSockets: {} websocket remote(s): {}'.format(msg, len(self.sockets)))
-    for websocket in self.sockets:
-      await websocket.send(msg)
-
-  def onValueFromServer(self, path, val):
+  def _onValueFromServer(self, path, val):
     """
     This method gets called when our Remote instance gets notified by Server
     instance, about a param value-change. We'll send out the value-change
@@ -140,16 +159,25 @@ class WebsocketServer:
     """
     logger.debug('onValueFromServer(path={}, val={})'.format(path, val))
     msg = 'POST {}?value={}'.format(path, val)
-    asyncio.ensure_future(self.sendToAllConnectedSockets(msg))
+    asyncio.ensure_future(self._sendToAllConnectedSockets(msg))
 
-  def onSchemaFromServer(self, schemadata):
+  def _onSchemaFromServer(self, schemadata):
     """
     This method gets called when our Remote instance gets notified by Server
     instance, about a schema change. We'll send out the schema change
     to all connected websockets.
     """
     msg = 'POST schema.json?schema={}'.format(json.dumps(schemadata))
-    asyncio.ensure_future(self.sendToAllConnectedSockets(msg))
+    asyncio.ensure_future(self._sendToAllConnectedSockets(msg))
+
+  async def _sendToAllConnectedSockets(self, msg):
+    """
+    This method broadcasts the given msg to all connected websockets
+    """
+    logger.debug('sendToAllConnectedSockets: {} websocket remote(s): {}'.format(msg, len(self.sockets)))
+    for websocket in self.sockets:
+      await websocket.send(msg)
+
 
 
 if __name__ == '__main__':
