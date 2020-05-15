@@ -1,5 +1,5 @@
 import logging
-from .params import Param, Params, IntParam, FloatParam
+from .params import Param, Params, IntParam, FloatParam, ImageParam
 
 
 logger = logging.getLogger(__name__)
@@ -15,6 +15,8 @@ def schema_list_append(schema, scope, id, item):
   if isinstance(item, Param):
     info = item.to_dict()
     info['path'] = scope+id
+    if 'value' in info and item.type == 'g':
+      info['value'] = ImageParam.serialize_value(info['value'])
     schema.append(info)
     return
   
