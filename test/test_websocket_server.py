@@ -2,36 +2,25 @@
 #!/usr/bin/env python
 import unittest
 from remote_params import HttpServer, Params, Server, Remote, create_sync_params, schema_list
-import asyncio
+import asyncio, asynctest
 
 from remote_params.WebsocketServer import WebsocketServer
-class TestWebsocketServer(unittest.TestCase):
+class TestWebsocketServer(asynctest.TestCase):
+  def setUp(self):
+    self.params = params = Params()
+    self.p1 = params.int('some_int')
+    self.p1.set(0)
+
+    self.wss = WebsocketServer(Server(self.params), start=False)
+
   def test_default_port(self):
-    s = WebsocketServer(Server(Params()), start=False)
+    self.assertEqual(self.wss.port, 8081)
 
-    self.assertEqual(s.port, 8081)
-
-  def test_incoming_value(self):
-    params = Params()
-    p1 = params.int('some_int')
-    p1.set(0)
-    s = Server(params)
-    ws = WebsocketServer(s)
-
-    async def receive_message():
-      await ws.onMessage(f'POST /some_int?value={4}', None)
-
-    self.run_async(receive_message)
-
-    self.assertEqual(p1.value, 4)
-
-  def run_async(self, func):
-    # https://jacobbridges.github.io/post/unit-testing-with-asyncio/
-    event_loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(event_loop)
-    coro = asyncio.coroutine(func)
-    event_loop.run_until_complete(coro())
-    event_loop.close()
+  async def test_incoming_value(self):
+    await self.wss.start_async()
+    await self.wss.onMessage(f'POST /some_int?value={4}', None)
+    self.assertEqual(self.p1.value, 4)
+    self.wss.stop()
 
 # run just the tests in this file
 if __name__ == '__main__':

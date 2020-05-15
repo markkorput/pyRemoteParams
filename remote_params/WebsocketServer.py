@@ -18,6 +18,8 @@ class WebsocketServer:
     self.remote.outgoing.sendValueEvent += self.onValueFromServer
     self.remote.outgoing.sendSchemaEvent += self.onSchemaFromServer
 
+    self._ws_server = None
+
     if start:
       self.start()
 
@@ -29,25 +31,36 @@ class WebsocketServer:
   def start(self):
     self.server.connect(self.remote)
 
-    action = websockets.serve(self.connectionFunc, self.host, self.port)
+    async_action = websockets.serve(self.connectionFunc, self.host, self.port)
+    
     eventloop = asyncio.get_event_loop()
 
     def func():
-      eventloop.run_until_complete(action)
+      eventloop.run_until_complete(async_action)
       eventloop.run_forever()
 
-    thread = threading.Thread(target=func)
-    thread.start()
+    self.thread = threading.Thread(target=func)
+    self.thread.start()
 
-  def stop(self):
+  async def start_async(self):
+    self.server.connect(self.remote)
+    self._ws_server = await websockets.serve(self.connectionFunc, self.host, self.port)
+    return self._ws_server
+
+  def stop(self, joinThread=True):
     self.server.disconnect(self.remote)
+
+    if self._ws_server:
+      self._ws_server.close()
+      self._ws_server = None
 
     if not self.thread:
       return
 
-    logger.debug('Trying to stop WebsocketServer thread')
-    asyncio.get_event_loop().stop()
-    self.thread.join()
+    # asyncio.get_event_loop().stop()
+    if joinThread:
+      print('joining thread')
+      self.thread.join()
     self.thread = None
     logger.debug('WebsocketServer thread stopped')
 
@@ -68,6 +81,8 @@ class WebsocketServer:
         await self.onMessage(msg, websocket)
     except websockets.exceptions.ConnectionClosedError:
       logger.info('Connection closed.')
+    except KeyboardInterrupt:
+      logger.warning('KeyboardInterrupt in WebsocketServer connectionFunc')
     finally:
       self.unregister(websocket)
 
@@ -107,7 +122,7 @@ class WebsocketServer:
       self.remote.incoming.valueEvent(path, val)
       return
 
-    logger.warn('Received unknown websocket message: {}'.format(msg))
+    logger.warning('Received unknown websocket message: {}'.format(msg))
 
   async def sendToAllConnectedSockets(self, msg):
     """
@@ -141,7 +156,6 @@ if __name__ == '__main__':
   """
   Example: serve bunch of params
   """
-
   import time
   from optparse import OptionParser
 
@@ -150,6 +164,7 @@ if __name__ == '__main__':
     parser.add_option('-p', '--port', default=8081, type='int')
     parser.add_option('--host', default='0.0.0.0')
 
+    parser.add_option('--no-async', action='store_true')
     parser.add_option('-v', '--verbose', action='store_true', default=False)
     parser.add_option('--verbosity', action='store_true', default='info')
 
@@ -157,43 +172,74 @@ if __name__ == '__main__':
     lvl = {'debug': logging.DEBUG, 'info': logging.INFO, 'warning':logging.WARNING, 'error':logging.ERROR, 'critical':logging.CRITICAL}['debug' if opts.verbose else str(opts.verbosity).lower()]
     logging.basicConfig(level=lvl)
     return opts, args
-  
+
+  async def main(host, port):
+    logger.info(f'Starting websocket server on port: {port}')
+    # Create some vars to test with
+    params = Params()
+    params.string('name').set('John Doe')
+    params.float('score')
+    params.float('range', min=0.0, max=100.0)
+    params.int('level')
+    params.bool('highest-score')
+    voidParam = params.void('stop')
+
+    gr = Params()
+    gr.string('name').set('Jane Doe')
+    gr.float('score')
+    gr.float('range', min=0.0, max=100.0)
+    gr.int('level')
+    gr.bool('highest-score')
+
+    params.group('parner', gr)
+    
+    wss = WebsocketServer(Server(params), host=host, port=port, start=False)
+    await wss.start_async()
+
+    try:
+      while True:
+        await asyncio.sleep(0.5)
+        pass
+    except KeyboardInterrupt:
+      print("Received Ctrl+C... initiating exit")
+
+    print('Stopping...')
+    wss.stop()
+
+  def main_sync(host, port):
+    logger.info(f'Starting websocket server on port: {port}')
+    # Create some vars to test with
+    params = Params()
+    params.string('name').set('John Doe')
+    params.float('score')
+    params.float('range', min=0.0, max=100.0)
+    params.int('level')
+    params.bool('highest-score')
+    voidParam = params.void('stop')
+
+    gr = Params()
+    gr.string('name').set('Jane Doe')
+    gr.float('score')
+    gr.float('range', min=0.0, max=100.0)
+    gr.int('level')
+    gr.bool('highest-score')
+
+    params.group('parner', gr)
+    
+    wss = WebsocketServer(Server(params), host=host, port=port)
+
+    try:
+      while True:
+        time.sleep(0.5)
+    except KeyboardInterrupt:
+      print("Received Ctrl+C... initiating exit")
+
+    print('Stopping...')
+    wss.stop()
+
   opts, args = parse_args()
 
-  logger.info(f'Starting websocket server on port: {opts.port}')
-  # Create some vars to test with
-  params = Params()
-  params.string('name').set('John Doe')
-  params.float('score')
-  params.float('range', min=0.0, max=100.0)
-  params.int('level')
-  params.bool('highest-score')
-  voidParam = params.void('stop')
-
-  gr = Params()
-  gr.string('name').set('Jane Doe')
-  gr.float('score')
-  gr.float('range', min=0.0, max=100.0)
-  gr.int('level')
-  gr.bool('highest-score')
-
-  params.group('parner', gr)
-  
-
-  doExit = False
-  def exitNow():
-    print('exitNow')
-    global doExit
-    doExit = True
-  
-  # voidParam.ontrigger(exitNow)
-
-  s = WebsocketServer(Server(params), host=opts.host, port=opts.port)
-  try:
-    while not doExit:
-      time.sleep(0.5)
-  except KeyboardInterrupt:
-    print("Received Ctrl+C... initiating exit")
-
-  print('Stopping...')
-  s.stop()
+  if opts.no_async:
+    main_sync(opts.host, opts.port)
+  else:
+    asyncio.run(main(opts.host, opts.port))
