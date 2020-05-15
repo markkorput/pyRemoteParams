@@ -1,6 +1,16 @@
 from evento import Event
 import logging, distutils
 
+try:
+  import cv2
+except:
+  cv2 = None # not supported
+
+try:
+  import numpy as np
+except:
+  np = None # numpy not supported
+
 logger = logging.getLogger(__name__)
 
 class Param:
@@ -122,15 +132,32 @@ class VoidParam(Param):
     self.value = 0
 
   def set(self, *value):
-    logger.debug('VoidParam.set')
     Param.set(self, self.value + 1)
 
   def trigger(self):
     self.set(None)
 
   def ontrigger(self, func):
-    logger.debug('VoidParam.ontrigger')
     self.changeEvent += func
+
+class ImageParam(Param):
+  def __init__(self, opts={}):
+    Param.__init__(self, 'g', opts=opts, setter=self.convert)
+  
+  def convert(self, v):
+    if cv2 is not None and np is not None:
+      if type(v) == type(np.array([])):
+        imparams = [cv2.IMWRITE_PNG_COMPRESSION, 9] # TODO: make configurable
+        ret, img_str = cv2.imencode('.png', v, imparams)
+        if not ret:
+          logger.warning('cv2.imencode failed to encode image into png format')
+          return None
+        print(f'Encoded image {len(img_str.tostring())}bytes')
+        return img_str.tostring()
+
+    # no supported image processor 
+    return None
+
 
 def create_child(params, id, item):
   '''
@@ -257,8 +284,12 @@ class Params(list):
   def void(self, id):
     return self.append(id, VoidParam())
 
+  def image(self, id):
+    return self.append(id, ImageParam())
+
   def group(self, id, params):
     self.append(id, params)
 
   def get(self, id):
     return self.items_by_id[id] if id in self.items_by_id else None
+
