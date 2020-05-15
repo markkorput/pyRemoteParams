@@ -19,10 +19,10 @@ class App:
     # Params
     params = Params()
     self.imageParam = params.image('image')
-    fps = params.float('fps', min=0.0, max=100.0)
+    fps = params.float('fps', min=0.0, max=5.0)
     snap = params.void('snap')
 
-    fps.set(0.2)
+    fps.set(0.0)
     snap.ontrigger(self.update)
 
     logger.info(f'Starting websocket server on port: {self.port}')
@@ -48,6 +48,9 @@ class App:
 
         if key == 27 or key == ord('q'): # escape or Q
           break
+      
+        if key == ord('s'):
+          self.update()
 
     except KeyboardInterrupt:
       print("Received Ctrl+C... initiating exit")

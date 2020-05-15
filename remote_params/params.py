@@ -1,5 +1,5 @@
 from evento import Event
-import logging, distutils
+import logging, distutils, base64
 
 try:
   import cv2
@@ -53,7 +53,8 @@ class Param:
     self.changeEvent()
 
   def equals(self, v1, v2):
-    return v1 == v2
+    return v1 is v2
+    # return v1 == v2
 
   def onchange(self, func):
     def funcWithValue():
@@ -61,7 +62,7 @@ class Param:
     self.changeEvent += funcWithValue
 
   def is_initialized(self):
-    return self.value != None
+    return self.value is not None
 
   def val(self):
     v = self.value if self.is_initialized() else self.default
@@ -144,25 +145,53 @@ class VoidParam(Param):
 
 class ImageParam(Param):
   def __init__(self, opts={}):
-    Param.__init__(self, 'g', opts=opts, setter=self.convert)
+    Param.__init__(self, 'g', opts=opts)
   
-  def convert(self, v):
+  # def convert(self, v):
+  #   if cv2 is not None and np is not None:
+  #     if type(v) == type(np.array([])):
+  #       # imparams = [cv2.IMWRITE_PNG_COMPRESSION, 9] # TODO: make configurable
+  #       ret, img = cv2.imencode('.png', v) #, imparams)
+
+  #       if not ret:
+  #         logger.warning('cv2.imencode failed to encode image into png format')
+  #         return None
+
+  #       png_str = base64.b64encode(img).decode('ascii')
+  #       # img = base64.b64decode(img.tostring()) #.encode('utf-8')
+  #       # img = img.tostring().decode('utf-8')
+  #       # png_str = str(img.tostring()) #str(img_str)
+
+  #       logger.debug(f'Encoded image {len(png_str)}-bytes')
+  #       return png_str
+
+  #   # no supported image processor 
+  #   return None
+
+  def get_serialized(self):
+    return self.serialize_value(self.val())
+
+  def set_serialized(self, v) -> None:
+    pass # TODO
+
+  @staticmethod
+  def serialize_value(value) -> str:
     if cv2 is not None and np is not None:
-      if type(v) == type(np.array([])):
-        # imparams = [cv2.IMWRITE_PNG_COMPRESSION, 9] # TODO: make configurable
-        ret, img = cv2.imencode('.png', v) #, imparams)
-        
+      if type(value) == type(np.array([])):
+        # TODO: make configurable
+        # imparams = [cv2.IMWRITE_PNG_COMPRESSION, 9] 
+        ret, img = cv2.imencode('.png', value) #, imparams)
+
         if not ret:
           logger.warning('cv2.imencode failed to encode image into png format')
           return None
 
-        png_str = str(img.tostring()) #str(img_str)
-        logger.debug(f'Encoded image {len(png_str)}-bytes')
+        png_str = base64.b64encode(img).decode('ascii')
+        logger.debug(f'Encoded image to {len(png_str)}-bytes png string')
         return png_str
 
     # no supported image processor 
-    return None
-
+    return value
 
 def create_child(params, id, item):
   '''
@@ -190,7 +219,7 @@ def create_child(params, id, item):
   if isinstance(item, Param):
     def onchange():
       params.changeEvent()
-      params.valueChangeEvent('/'+id, item.val())
+      params.valueChangeEvent('/'+id, item.val(), item)
     item.changeEvent += onchange
     
     # register cleanup logic
@@ -202,8 +231,8 @@ def create_child(params, id, item):
   if isinstance(item, Params):
     item.changeEvent += params.changeEvent.fire
     item.schemaChangeEvent += params.schemaChangeEvent.fire
-    def forwardValChange(path, val):
-      params.valueChangeEvent('/'+id+path, val)
+    def forwardValChange(path, val, param):
+      params.valueChangeEvent('/'+id+path, val, param)
     item.valueChangeEvent += forwardValChange
 
     # record cleanup logic

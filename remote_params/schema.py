@@ -27,8 +27,6 @@ def get_path(params, path):
   parts = path.split('/')[1:]
   current = params
 
-  logger.debug('[get_path] path={}'.format(path))
-
   for p in parts:
     if not current:
       return None
@@ -37,8 +35,6 @@ def get_path(params, path):
   return current
 
 def set_path(params, path, param):
-  logger.debug('[set_path] path={}'.format(path))
-
   parent_ids = '/'.join(path.split('/')[1:-1])
   current = params
   for id in parent_ids:
@@ -71,7 +67,7 @@ def create_param(param_data):
       min=param_data['min'] if 'min' in param_data else None,
       max=param_data['max'] if 'max' in param_data else None)
 
-  if param_data['type'] == 'i':
+  if param_data['type'] == 'f':
     return FloatParam(
       min=param_data['min'] if 'min' in param_data else None,
       max=param_data['max'] if 'max' in param_data else None)
@@ -119,7 +115,10 @@ def get_values(params):
     id, item = pair
 
     if isinstance(item, Param):
-      values[id] = item.val()
+      if item.type == 'g':
+        values[id] = item.get_serialized()
+      else:
+        values[id] = item.val()
     
     if isinstance(item, Params):
       values[id] = get_values(item)
@@ -136,5 +135,8 @@ def set_values(params, vals):
     if type(v) is dict:
       set_values(param, v)
     else:
-      param.set(v)
+      if param.type == 'g':
+        param.set_serialized(v)
+      else:
+        param.set(v)
 

@@ -6,7 +6,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 class Remote:
-  def __init__(self):
+  def __init__(self, serialize=False):
     class Incoming:
       def __init__(self):
         # events for remote-to-server communications
@@ -51,8 +51,10 @@ class Remote:
         '''
         self.sendValueEvent(path, value)
 
+    self.serialize = serialize
     self.incoming = Incoming()
     self.outgoing = Outgoing()
+
 
 def create_connection(server, remote):
 
@@ -153,10 +155,16 @@ class Server:
     for r in self.connected_remotes:
       r.outgoing.send_schema(schema_data)
 
-  def broadcast_value_change(self, path, value):
+  def broadcast_value_change(self, path, value, param):
     logger.debug('[Server.broadcast_value_change] to {} connected remotes'.format(len(self.connected_remotes)))
+    serialized_value = None
     for r in self.connected_remotes:
-      r.outgoing.send_value(path, value)
+      if param.type == 'g' and r.serialize:
+        if serialized_value is None:
+          serialized_value = param.get_serialized()
+        r.outgoing.send_value(path, serialized_value)
+      else:
+        r.outgoing.send_value(path, value)
 
   def handle_remote_value_change(self, remote, path, value):
     def processNow():
