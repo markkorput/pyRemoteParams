@@ -24,7 +24,7 @@ class WebsocketServer:
     self.thread = None
     self.sockets = set()
 
-    self.remote = Remote()
+    self.remote = Remote(serialize=True)
     self.remote.outgoing.sendValueEvent += self._onValueFromServer
     self.remote.outgoing.sendSchemaEvent += self._onSchemaFromServer
 
