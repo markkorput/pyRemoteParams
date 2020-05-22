@@ -1,6 +1,5 @@
 import logging, os.path
 from remote_params import Params, Server, Remote, schema_list #, create_sync_params, schema_list
-from .WebsocketServer import WebsocketServer
 from .http_utils import HttpServer as UtilHttpServer
 
 logger = logging.getLogger(__name__)
@@ -18,8 +17,6 @@ class HttpServer:
     self.httpServer = UtilHttpServer(port=port, start=False)
     self.httpServer.requestEvent += self.onHttpRequest
 
-    self.websocketServer = None
-
     self.uiHtmlFilePath = os.path.abspath(os.path.join(os.path.dirname(__file__),'ui.html'))
 
     if startServer:
@@ -33,9 +30,6 @@ class HttpServer:
     logger.info('Starting HTTP server on port: {}'.format(self.httpServer.port))
     self.httpServer.startServer()
     
-    logger.info('Starting Websockets server on port {}'.format(self.httpServer.port+1))
-    self.websocketServer = WebsocketServer(self.server, self.httpServer.port+1)
-
   def stop(self):
     self.httpServer.stopServer()
 

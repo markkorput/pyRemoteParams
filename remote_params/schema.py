@@ -1,5 +1,5 @@
 import logging
-from .params import Param, Params, IntParam, FloatParam
+from .params import Param, Params, IntParam, FloatParam, ImageParam
 
 
 logger = logging.getLogger(__name__)
@@ -15,6 +15,8 @@ def schema_list_append(schema, scope, id, item):
   if isinstance(item, Param):
     info = item.to_dict()
     info['path'] = scope+id
+    if 'value' in info and item.type == 'g':
+      info['value'] = ImageParam.serialize_value(info['value'])
     schema.append(info)
     return
   
@@ -27,8 +29,6 @@ def get_path(params, path):
   parts = path.split('/')[1:]
   current = params
 
-  logger.debug('[get_path] path={}'.format(path))
-
   for p in parts:
     if not current:
       return None
@@ -37,8 +37,6 @@ def get_path(params, path):
   return current
 
 def set_path(params, path, param):
-  logger.debug('[set_path] path={}'.format(path))
-
   parent_ids = '/'.join(path.split('/')[1:-1])
   current = params
   for id in parent_ids:
@@ -71,7 +69,7 @@ def create_param(param_data):
       min=param_data['min'] if 'min' in param_data else None,
       max=param_data['max'] if 'max' in param_data else None)
 
-  if param_data['type'] == 'i':
+  if param_data['type'] == 'f':
     return FloatParam(
       min=param_data['min'] if 'min' in param_data else None,
       max=param_data['max'] if 'max' in param_data else None)
@@ -111,3 +109,36 @@ def apply_schema_list(params, schema_data):
 
   add_new_items_and_values(params, schema_data)
   remove_items_not_in_schema_list(params, schema_data)
+
+def get_values(params):
+  values = {}
+
+  for pair in params:
+    id, item = pair
+
+    if isinstance(item, Param):
+      if item.type == 'g':
+        values[id] = item.get_serialized()
+      else:
+        values[id] = item.val()
+    
+    if isinstance(item, Params):
+      values[id] = get_values(item)
+
+  return values
+
+def set_values(params, vals):
+  for k, v in vals.items():
+    param = params.get(k)
+
+    if param is None:
+      continue
+
+    if type(v) is dict:
+      set_values(param, v)
+    else:
+      if param.type == 'g':
+        param.set_serialized(v)
+      else:
+        param.set(v)
+

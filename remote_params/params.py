@@ -1,9 +1,29 @@
 from evento import Event
-import logging, distutils
+import logging, distutils, base64
+
+try:
+  import cv2
+except:
+  cv2 = None # not supported
+
+try:
+  import numpy as np
+except:
+  np = None # numpy not supported
 
 logger = logging.getLogger(__name__)
 
 class Param:
+
+  class InvalidValue(ValueError):
+    def __init__(self, value):
+      ValueError.__init__(self, "Invalid value: {}".format(value))
+      self.value = value
+
+    @classmethod
+    def isInvalid(cls, value):
+      return isinstance(value, cls)
+
   def __init__(self, type_, default=None, opts={}, getter=None, setter=None):
     self.type = type_
     self.value = None
@@ -16,17 +36,25 @@ class Param:
 
   def set(self, value):
     if self.setter:
-      value = self.setter(value)
+      settervalue = self.setter(value)
+      if Param.InvalidValue.isInvalid(settervalue):
+        logger.warning('[Param.set value={}] InvalidValue'.format(value))
+        return
 
-    logger.debug('[Param.set value=`{}`]'.format(value))
+      value = settervalue
+
+    # logger.debug('[Param.set value=`{}`]'.format(value))
     if self.equals(value, self.value):
+      # logger.debug('equal')
       return
-
+    
     self.value = value
+    logger.debug('[Param.set] changevent')
     self.changeEvent()
 
   def equals(self, v1, v2):
-    return v1 == v2
+    return v1 is v2
+    # return v1 == v2
 
   def onchange(self, func):
     def funcWithValue():
@@ -34,7 +62,7 @@ class Param:
     self.changeEvent += funcWithValue
 
   def is_initialized(self):
-    return self.value != None
+    return self.value is not None
 
   def val(self):
     v = self.value if self.is_initialized() else self.default
@@ -60,7 +88,6 @@ class Param:
 
       return val
     return safeFunc
-
 
 def convertParamNumberVal(v, converter, fallback, opts={}):
   try:
@@ -97,11 +124,74 @@ class FloatParam(Param):
       setter=self.convert)
 
   def convert(self, v):
-    print(f'converting: {v} with {self.opts}')
+    # print(f'converting: {v} with {self.opts}')
     vv = convertParamNumberVal(v, float, self.value, self.opts)
-    print(f'converting after: {vv}')
+    # print(f'converting after: {vv}')
     return vv
 
+class VoidParam(Param):
+  def __init__(self):
+    Param.__init__(self, 'v')
+    self.value = 0
+
+  def set(self, *value):
+    Param.set(self, self.value + 1)
+
+  def trigger(self):
+    self.set(None)
+
+  def ontrigger(self, func):
+    self.changeEvent += func
+
+class ImageParam(Param):
+  def __init__(self, opts={}):
+    Param.__init__(self, 'g', opts=opts)
+  
+  # def convert(self, v):
+  #   if cv2 is not None and np is not None:
+  #     if type(v) == type(np.array([])):
+  #       # imparams = [cv2.IMWRITE_PNG_COMPRESSION, 9] # TODO: make configurable
+  #       ret, img = cv2.imencode('.png', v) #, imparams)
+
+  #       if not ret:
+  #         logger.warning('cv2.imencode failed to encode image into png format')
+  #         return None
+
+  #       png_str = base64.b64encode(img).decode('ascii')
+  #       # img = base64.b64decode(img.tostring()) #.encode('utf-8')
+  #       # img = img.tostring().decode('utf-8')
+  #       # png_str = str(img.tostring()) #str(img_str)
+
+  #       logger.debug(f'Encoded image {len(png_str)}-bytes')
+  #       return png_str
+
+  #   # no supported image processor 
+  #   return None
+
+  def get_serialized(self):
+    return self.serialize_value(self.val())
+
+  def set_serialized(self, v) -> None:
+    pass # TODO
+
+  @staticmethod
+  def serialize_value(value) -> str:
+    if cv2 is not None and np is not None:
+      if type(value) == type(np.array([])):
+        # TODO: make configurable
+        # imparams = [cv2.IMWRITE_PNG_COMPRESSION, 9] 
+        ret, img = cv2.imencode('.png', value) #, imparams)
+
+        if not ret:
+          logger.warning('cv2.imencode failed to encode image into png format')
+          return None
+
+        png_str = base64.b64encode(img).decode('ascii')
+        logger.debug(f'Encoded image to {len(png_str)}-bytes png string')
+        return png_str
+
+    # no supported image processor 
+    return value
 
 def create_child(params, id, item):
   '''
@@ -129,7 +219,7 @@ def create_child(params, id, item):
   if isinstance(item, Param):
     def onchange():
       params.changeEvent()
-      params.valueChangeEvent('/'+id, item.val())
+      params.valueChangeEvent('/'+id, item.val(), item)
     item.changeEvent += onchange
     
     # register cleanup logic
@@ -141,8 +231,8 @@ def create_child(params, id, item):
   if isinstance(item, Params):
     item.changeEvent += params.changeEvent.fire
     item.schemaChangeEvent += params.schemaChangeEvent.fire
-    def forwardValChange(path, val):
-      params.valueChangeEvent('/'+id+path, val)
+    def forwardValChange(path, val, param):
+      params.valueChangeEvent('/'+id+path, val, param)
     item.valueChangeEvent += forwardValChange
 
     # record cleanup logic
@@ -210,15 +300,30 @@ class Params(list):
 
   def bool(self, id):
     def converter(v):
-      return v if type(v) == type(True) else distutils.util.strtobool(v) == 1
+      if type(v) == type(True) or type(v) == type(False):
+        return v
+      if str(v).lower() in ['true', '1', 'yes', 'y']:
+        return True
+      if str(v).lower() in ['false', '0', 'no', 'n']:
+        return False
+      return Param.InvalidValue(v)
+
+      # if distutils.util.strtobool(v) == 1 if 'util' in dir(distutils) else str(v) in ['True', 'true', '1'])
 
     return self.append_param(id, 'b', setter=converter)
 
   def float(self, id, min=None, max=None):
     return self.append(id, FloatParam(min, max))
 
+  def void(self, id):
+    return self.append(id, VoidParam())
+
+  def image(self, id):
+    return self.append(id, ImageParam())
+
   def group(self, id, params):
     self.append(id, params)
 
   def get(self, id):
     return self.items_by_id[id] if id in self.items_by_id else None
+

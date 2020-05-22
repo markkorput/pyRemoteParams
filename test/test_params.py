@@ -31,12 +31,19 @@ class TestParams(unittest.TestCase):
 
     param.set('true')
     self.assertEqual(param.val(), True)
-    param.set('xxx')
+    self.assertEqual(param.changeEvent._fireCount, 1)
+
+    param.set('xxx') # will not change the value
     self.assertEqual(param.val(), True)
+    self.assertEqual(param.changeEvent._fireCount, 1)
+
     param.set('false')
     self.assertEqual(param.val(), False)
-    param.set('yyy')
+    self.assertEqual(param.changeEvent._fireCount, 2)
+
+    param.set('yyy') # will not change the value
     self.assertEqual(param.val(), False)
+    self.assertEqual(param.changeEvent._fireCount, 2)
 
   def test_float(self):
     params = Params()
@@ -48,6 +55,38 @@ class TestParams(unittest.TestCase):
     self.assertEqual(param.val(), 4.81)
     param.set('zzz')
     self.assertEqual(param.val(), 4.81)
+
+  def test_void(self):
+    p = Params()
+    exitparam = p.void('exit')
+    self.assertEqual(exitparam.to_dict()['type'], 'v')
+
+    exits = []
+    exitparam.onchange(exits.append)
+    self.assertEqual(len(exits), 0)
+    exitparam.set(None)
+    self.assertEqual(len(exits), 1)
+    exitparam.set('foo')
+    self.assertEqual(len(exits), 2)
+    exitparam.trigger()
+    self.assertEqual(len(exits), 3)
+
+  def test_void_argumentless_callback(self):
+    p = Params()
+    exitparam = p.void('exit')
+    self.assertEqual(exitparam.to_dict()['type'], 'v')
+
+    exits = []
+    def func():
+      print('func: {}'.format(len(exits)))
+      exits.append('func')
+    
+    exitparam.ontrigger(func)
+    self.assertEqual(len(exits), 0)
+    exitparam.trigger()
+    self.assertEqual(len(exits), 1)
+    self.assertEqual(exits[-1], 'func')
+
 
   def test_group(self):
     p = Params()

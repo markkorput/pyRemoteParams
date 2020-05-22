@@ -77,7 +77,7 @@ class TestOsc(unittest.TestCase):
     send_log.clear()
     # osc_server.receive('/params/disconnect', ('127.0.0.1:8081'))
     for r in server.connected_remotes:
-      r.send_disconnect()
+      r.outgoing.send_disconnect()
       # server.disconnect(r)
     self.assertEqual(send_log, [
       ('127.0.0.1', 8081, '/params/disconnect', ())])

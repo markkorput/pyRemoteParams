@@ -24,6 +24,20 @@ class Client:
   '''
 
   def __init__(self, server, id, prefix='/params'):
+    """
+    Parameters
+    ----------
+    server : OscServer
+      OscServer instance
+
+    id : str
+      address for outgoing messages in the following format: "<host>:<port>"
+      ie. "127.0.0.1:8001" or "devlaptop.local:8081"
+
+    prefix : str
+      prefix to apply to all outgoing OSC message addresses
+    """
+
     self.send_raw = server.send
 
     parts = id.split(':')
@@ -71,10 +85,10 @@ class Connection:
     self.isActive = self.client.isValid and connect
 
     r = Remote()
-    r.sendConnectConfirmationEvent += self.onConnectConfimToRemote
-    r.sendValueEvent += self.onValueToRemote
-    r.sendSchemaEvent += self.onSchemaToRemote
-    r.sendDisconnectEvent += self.onDisconnectToRemote
+    r.outgoing.sendConnectConfirmationEvent += self.onConnectConfimToRemote
+    r.outgoing.sendValueEvent += self.onValueToRemote
+    r.outgoing.sendSchemaEvent += self.onSchemaToRemote
+    r.outgoing.sendDisconnectEvent += self.onDisconnectToRemote
     self.remote = r
 
     if self.isActive:
@@ -147,7 +161,7 @@ class OscServer:
     # inform the server about incoming information
     if self.server and self.remote:
       self.server.connect(self.remote)
-  
+
     self.prefix = prefix if prefix else '/params'
     self.connect_addr = self.prefix+'/connect'
     self.disconnect_addr = self.prefix+'/disconnect'
@@ -203,7 +217,7 @@ class OscServer:
       else:
         logger.warning('[OscServer.receive] got connect message without host/port info')
       return
-    
+
     # Schema request?
     if addr == self.schema_addr and len(args) == 1:
       self.onSchemaRequest(args[0])
@@ -226,7 +240,7 @@ class OscServer:
   def onValueReceived(self, path, value):
     logger.debug('[OscServer.onValueReceived path={} value={}]'.format(path, value))
     # pass it on to the server through our remote instance
-    self.remote.valueEvent(path, value)
+    self.remote.incoming.valueEvent(path, value)
   
   def onSchemaRequest(self, responseInfo):
     Client(self, responseInfo).sendSchema(schema_list(self.server.params))
