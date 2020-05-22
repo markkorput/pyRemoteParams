@@ -1,10 +1,11 @@
-import logging, json
-logger = logging.getLogger(__name__)
+import logging, json, math, asyncio, websockets, threading
 
-import asyncio, websockets, threading
-from remote_params import Params, Server, Remote, schema_list #, create_sync_params, schema_list
+from remote_params.server import Server, Remote
+from remote_params.schema import schema_list
 
 DEFAULT_PORT = 8081
+
+logger = logging.getLogger(__name__)
 
 class WebsocketServer:
   """
@@ -179,8 +180,9 @@ class WebsocketServer:
       await websocket.send(msg)
 
 
-
 if __name__ == '__main__':
+  from remote_params.params import Params
+
   """
   Example: serve bunch of params
   """
@@ -206,7 +208,7 @@ if __name__ == '__main__':
     # Create some vars to test with
     params = Params()
     params.string('name').set('John Doe')
-    params.float('score')
+    sineparam = params.float('sine')
     params.float('range', min=0.0, max=100.0)
     params.int('level')
     params.bool('highest-score')
@@ -227,7 +229,8 @@ if __name__ == '__main__':
     try:
       while True:
         await asyncio.sleep(0.5)
-        pass
+        sineparam.set(math.sin(time.time()))
+        
     except KeyboardInterrupt:
       print("Received Ctrl+C... initiating exit")
 

@@ -124,9 +124,9 @@ class FloatParam(Param):
       setter=self.convert)
 
   def convert(self, v):
-    print(f'converting: {v} with {self.opts}')
+    # print(f'converting: {v} with {self.opts}')
     vv = convertParamNumberVal(v, float, self.value, self.opts)
-    print(f'converting after: {vv}')
+    # print(f'converting after: {vv}')
     return vv
 
 class VoidParam(Param):
