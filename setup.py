@@ -6,7 +6,7 @@ with open(os.path.join(os.path.dirname(__name__), 'README.md')) as f:
     long_description = f.read()
 
 setup(name='remote_params',
-      version='0.0.3',
+      version='0.1.0',
       description='Remote controllable params',
       long_description=long_description,
       long_description_content_type='text/markdown',
