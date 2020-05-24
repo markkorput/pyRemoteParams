@@ -1,6 +1,6 @@
 # pyRemoteParams
-<!-- [![Build Status](https://travis-ci.org/markkorput/pyevento.svg)](https://travis-ci.org/markkorput/pyevento) -->
 
+[![Build Status](https://travis-ci.org/markkorput/pyRemoteParams.svg)](https://travis-ci.org/github/markkorput/pyRemoteParams)
 
 Python remote_params package lets you add (remote) GUI controlable parameters to your pyhton application.
 
