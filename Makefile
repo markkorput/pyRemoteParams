@@ -27,6 +27,9 @@ typecheck:
 stale:
 	${RUN} vulture --min-confidence 100 ${PATHS}
 
+.PHONY w:
+w: watch
+
 # Testing
 .PHONY: watch
 watch: clean/tests

@@ -1,7 +1,17 @@
 import json
+import time
+from typing import Any
 
+import pytest
 from remote_params import Params, osc, schema
 from remote_params.server import Server
+
+
+def _create_server(**kwargs: Any) -> osc.OscServer:
+    params = Params()
+    params.string("name")
+    server = Server(params)
+    return osc.OscServer(server, **kwargs)
 
 
 class TestOsc:
@@ -98,3 +108,46 @@ class TestOsc:
             r.outgoing.send_disconnect()
             # server.disconnect(r)
         assert send_log == [("127.0.0.1", 8081, "/params/disconnect", ())]
+
+        osc_server.stop()
+
+
+class TestClient:
+    def test_sendSchema(self):
+        osc_server = _create_server(listen=False)
+        client = osc.Client(osc_server, "localhost:8124")
+        client.sendSchema('{"foo": "bar"}')
+
+
+class TestServer:
+    def test_receive_schema_request(self):
+        captured = []
+
+        def capture(host, port, addr, args):
+            captured.append((host, port, addr, args))
+
+        osc_server = _create_server(capture_sends=capture)
+
+        # send schema request
+        osc.Client.send_message(
+            "127.0.0.1",
+            osc_server.port,
+            osc_server.schema_addr,
+            f"127.0.0.1:{osc_server.port+1}",
+        )
+
+        # allow some time to process request
+        deadline = time.time() + 0.2
+        while not captured and time.time() < deadline:
+            time.sleep(0.01)
+        osc_server.stop()
+
+        # verify schema was sent out
+        assert captured == [
+            (
+                "127.0.0.1",
+                8001,
+                osc_server.schema_addr,
+                json.dumps(schema.schema_list(osc_server.server.params)),
+            )
+        ]

@@ -195,18 +195,6 @@ optional = false
 python-versions = "*"
 
 [[package]]
-name = "oscpy"
-version = "0.6.0"
-description = "A modern and efficient OSC Client/Server implementation"
-category = "main"
-optional = false
-python-versions = "*"
-
-[package.extras]
-ci = ["coveralls", "pytest-rerunfailures"]
-dev = ["pytest (>=3.6)", "wheel", "pytest-cov", "pycodestyle"]
-
-[[package]]
 name = "packaging"
 version = "21.3"
 description = "Core utilities for Python packages"
@@ -368,6 +356,14 @@ pytest = ">=2.6.4"
 watchdog = ">=0.6.0"
 
 [[package]]
+name = "python-osc"
+version = "1.8.0"
+description = "Open Sound Control server and client implementations in pure Python"
+category = "main"
+optional = false
+python-versions = "*"
+
+[[package]]
 name = "six"
 version = "1.16.0"
 description = "Python 2 and 3 compatibility utilities"
@@ -432,7 +428,7 @@ python-versions = ">=3.7"
 [metadata]
 lock-version = "1.1"
 python-versions = "^3.10"
-content-hash = "f311e2893b582981e00054a971439cd266f23453c232f7eca6c83398692b1647"
+content-hash = "2123af28f10507f6c2d096d92dde001b3afe84dd55dbbdd00716a76fd3bca3ee"
 
 [metadata.files]
 asttokens = [
@@ -583,10 +579,6 @@ mypy-extensions = [
     {file = "mypy_extensions-0.4.3-py2.py3-none-any.whl", hash = "sha256:090fedd75945a69ae91ce1303b5824f428daf5a028d2f6ab8a299250a846f15d"},
     {file = "mypy_extensions-0.4.3.tar.gz", hash = "sha256:2d82818f5bb3e369420cb3c4060a7970edba416647068eb4c5343488a6c604a8"},
 ]
-oscpy = [
-    {file = "oscpy-0.6.0-py2.py3-none-any.whl", hash = "sha256:88de3f67bb21fa094f8b782641158bc763a0b96a74f8d7d26556ada6eb5b363a"},
-    {file = "oscpy-0.6.0.tar.gz", hash = "sha256:0728a5a7266732c9d64630063d384911d5d6ae474416b79b78d4905773fb6d33"},
-]
 packaging = [
     {file = "packaging-21.3-py3-none-any.whl", hash = "sha256:ef103e05f519cdc783ae24ea4e2e0f508a9c99b2d4969652eed6a2e1ea5bd522"},
     {file = "packaging-21.3.tar.gz", hash = "sha256:dd47c42927d89ab911e606518907cc2d3a1f38bbd026385970643f9c5b8ecfeb"},
@@ -641,6 +633,10 @@ pytest-testmon = [
 ]
 pytest-watch = [
     {file = "pytest-watch-4.2.0.tar.gz", hash = "sha256:06136f03d5b361718b8d0d234042f7b2f203910d8568f63df2f866b547b3d4b9"},
+]
+python-osc = [
+    {file = "python-osc-1.8.0.tar.gz", hash = "sha256:2f8c187c68d239960fb2eddcb5346a62a9b35e64f2de045b3e5e509f475ca73d"},
+    {file = "python_osc-1.8.0-py3-none-any.whl", hash = "sha256:9e2abb2fc9ba2c356f8e951609a03c9c7017bf0bad82cca8490e9b8af9e92a0b"},
 ]
 six = [
     {file = "six-1.16.0-py2.py3-none-any.whl", hash = "sha256:8abb2f1d86890a2dfb989f9a77cfcfd3e47c2a354b01111771326f8aa26e0254"},

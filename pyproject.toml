@@ -9,7 +9,7 @@ packages = [{ include = "remote_params", "from" = "." }]
 python = "^3.10"
 evento = "^1.0.2"
 websockets = "^10.2"
-oscpy = "^0.6.0"
+python-osc = "^1.8.0"
 
 [tool.poetry.dev-dependencies]
 pytest = "^7.1.1"
@@ -31,3 +31,5 @@ build-backend = "poetry.core.masonry.api"
 [tool.pytest.ini_options]
 python_files = "*_test.py"
 asyncio_mode = "strict"
+markers = """
+focus: what is being developed right now"""

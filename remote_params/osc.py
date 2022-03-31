@@ -1,7 +1,9 @@
 import json
 import logging
+import threading
+from typing import Any, Callable, Optional
 
-from oscpy.client import OSCClient
+from pythonosc import dispatcher, osc_server, udp_client
 
 from .schema import schema_list
 from .server import Remote
@@ -78,6 +80,11 @@ class Client:
     def sendDisconnect(self):
         self.send(self.disconnect_addr)
 
+    @classmethod
+    def send_message(cls, host: str, port: int, addr: str, *args) -> None:
+        client = udp_client.SimpleUDPClient(host, port)
+        client.send_message(addr, args)
+
 
 class Connection:
     """
@@ -142,38 +149,38 @@ def create_osc_listener(port=8000, callback=None):
     """
     Create a threaded OSC server that listens for incoming UDP messages
     """
-    from oscpy.server import OSCThreadServer
-
     logger.debug("[create_osc_listener port={}]".format(port))
 
-    def converter(addr, *args):
-        logger.debug(
-            "[create_osc_listener.converter] addr={} args={}".format(addr, args)
-        )
+    def handler(addr: str, *args: Any):
+        logger.debug("[create_osc_listener.handler] addr={} args={}".format(addr, args))
         if callback:
-            callback(addr.decode("utf-8"), args)
+            callback(addr, args)
 
-    osc = OSCThreadServer(
-        advanced_matching=True, encoding="utf8", default_handler=converter
-    )  # See sources for all the arguments
-    sock = osc.listen(address="0.0.0.0", port=port, default=True)
+    disp = dispatcher.Dispatcher()
+    disp.set_default_handler(handler)
+    server = osc_server.ThreadingOSCUDPServer(("0.0.0.0", port), disp)
 
-    # osc.bind_all(converter, get_address=True)
+    thread = threading.Thread(target=server.serve_forever)
 
     def disconnect():
-        osc.stop()  # Stop the default socket
-        osc.stop_all()  # Stop all sockets
+        server.shutdown()
+        thread.join()
 
-        # Here the server is still alive, one might call osc.listen() again
-        osc.terminate_server()  # Request the handler thread to stop looping
-        osc.join_server()
-
-    return osc, disconnect
+    thread.start()
+    return server, disconnect
 
 
 class OscServer:
-    def __init__(self, server, prefix=None, capture_sends=None, listen=True):
+    def __init__(
+        self,
+        server,
+        port: int = 8000,
+        prefix: str = "/params",
+        capture_sends: Optional[Callable[[str, int, str, tuple], None]] = None,
+        listen: bool = True,
+    ):
         self.server = server
+        self.port = port
         self.capture_sends = capture_sends
         self.connections = []
         self.remote = Remote()
@@ -182,7 +189,7 @@ class OscServer:
         if self.server and self.remote:
             self.server.connect(self.remote)
 
-        self.prefix = prefix if prefix else "/params"
+        self.prefix = prefix
         self.connect_addr = self.prefix + "/connect"
         self.disconnect_addr = self.prefix + "/disconnect"
         self.value_addr = self.prefix + "/value"
@@ -190,11 +197,16 @@ class OscServer:
 
         self.disconnect_listener = None
         if listen:
-            server, disconnect = create_osc_listener(callback=self.receive)
+            server, disconnect = create_osc_listener(
+                port=self.port, callback=self.receive
+            )
 
             self.disconnect_listener = disconnect
 
     def __del__(self):
+        self.stop()
+
+    def stop(self) -> None:
         # this triggers cleanup in destructor of the Connection instances
         self.connection = []
         if self.server and self.remote:
@@ -218,9 +230,9 @@ class OscServer:
                 self.onValueReceived(path, value)
             else:
                 logger.warning(
-                    "[OscServer.receive] received value message ({}) with invalid number ({}) of arguments: {}. Expecting two arguments (path and value)".format(
-                        addr, len(args), args
-                    )
+                    "[OscServer.receive] received value message ({}) with invalid"
+                    " number ({}) of arguments: {}. Expecting two arguments (path and"
+                    " value)".format(addr, len(args), args)
                 )
             return
 
@@ -232,9 +244,9 @@ class OscServer:
                 self.onValueReceived(path, value)
             else:
                 logger.warning(
-                    "[OscServer.receive] received value message ({}) with invalid number ({}) of arguments: {}. Expecting one arguments (value)".format(
-                        addr, len(args), args
-                    )
+                    "[OscServer.receive] received value message ({}) with invalid"
+                    " number ({}) of arguments: {}. Expecting one arguments (value)"
+                    .format(addr, len(args), args)
                 )
             return
 
@@ -261,8 +273,8 @@ class OscServer:
             self.capture_sends(host, port, addr, args)
             return
 
-        client = OSCClient(host, port)
-        client.send_message(bytes(addr, "utf-8"), args)
+        # client = OSCClient(host, port)
+        Client.send_message(host, port, addr, *args)
 
     def onConnect(self, response_info):
         connection = Connection(self, response_info)
