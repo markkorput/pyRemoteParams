@@ -47,9 +47,8 @@ def set_path(params, path, param):
         current = current.get(id)
         if not current or not isinstance(current, Params):
             logger.warning(
-                "[set_path path=`{}`] could not set path because parent {} is not a Params group".format(
-                    path, id
-                )
+                "[set_path path=`{}`] could not set path because parent {} is not a Params group"
+                .format(path, id)
             )
             return
 
@@ -64,9 +63,7 @@ def remove_path(params, path):
 
     parent = params.get(parent_path)
     if not parent:
-        logger.warning(
-            "[remove_path] could not find parent with path: {}".format(parent_path)
-        )
+        logger.warning("[remove_path] could not find parent with path: {}".format(parent_path))
         return
 
     parent.remove(param_id)

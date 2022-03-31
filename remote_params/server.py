@@ -124,9 +124,7 @@ class Server:
 
         self.cleanups = []
         self.cleanups.append(self.params.schemaChangeEvent.add(self.broadcast_schema))
-        self.cleanups.append(
-            self.params.valueChangeEvent.add(self.broadcast_value_change)
-        )
+        self.cleanups.append(self.params.valueChangeEvent.add(self.broadcast_value_change))
 
         self.updateFuncs = []
 
@@ -189,9 +187,7 @@ class Server:
             logger.debug("[Server.handle_remote_value_change]")
             param = get_path(self.params, path)
             if not param:
-                logger.warning(
-                    "[Server.handle_remote_value_change] unknown path: {}".format(path)
-                )
+                logger.warning("[Server.handle_remote_value_change] unknown path: {}".format(path))
                 return
             param.set(value)
 
@@ -224,9 +220,7 @@ def create_sync_params(remote, request_initial_schema=True):
     def onValue(path, value):
         param = get_path(params, path)
         if not param:
-            logging.warning(
-                "[create_sync_params.onValue] got invalid path: {}".format(path)
-            )
+            logging.warning("[create_sync_params.onValue] got invalid path: {}".format(path))
             return
         param.set(value)
 

@@ -2,7 +2,6 @@ import json
 import time
 from typing import Any
 
-import pytest
 from remote_params import Params, osc, schema
 from remote_params.server import Server
 

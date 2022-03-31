@@ -1,4 +1,4 @@
-import base64
+# import base64
 
 # import distutils
 import logging
@@ -116,9 +116,9 @@ def convertParamNumberVal(v, converter, fallback, opts={}):
 class IntParam(Param):
     def __init__(self, min=None, max=None):
         opts = {}
-        if min != None:
+        if min is not None:
             opts["min"] = convertParamNumberVal(min, int, None)
-        if max != None:
+        if max is not None:
             opts["max"] = convertParamNumberVal(max, int, None)
         Param.__init__(self, "i", opts=opts, setter=self.convert)
 
@@ -129,9 +129,9 @@ class IntParam(Param):
 class FloatParam(Param):
     def __init__(self, min=None, max=None):
         opts = {}
-        if min != None:
+        if min is not None:
             opts["min"] = convertParamNumberVal(min, float, None)
-        if max != None:
+        if max is not None:
             opts["max"] = convertParamNumberVal(max, float, None)
 
         Param.__init__(self, "f", opts=opts, setter=self.convert)
@@ -191,21 +191,19 @@ class ImageParam(Param):
 
     @staticmethod
     def serialize_value(value) -> str:
-        if cv2 is not None and np is not None:
-            if type(value) == type(np.array([])):
-                # TODO: make configurable
-                # imparams = [cv2.IMWRITE_PNG_COMPRESSION, 9]
-                ret, img = cv2.imencode(".png", value)  # , imparams)
+        # if cv2 is not None and np is not None:
+        #     if isinstance(value, np.array):  # type(value) == type(np.array([])):
+        #         # TODO: make configurable
+        #         # imparams = [cv2.IMWRITE_PNG_COMPRESSION, 9]
+        #         ret, img = cv2.imencode(".png", value)  # , imparams)
 
-                if not ret:
-                    logger.warning(
-                        "cv2.imencode failed to encode image into png format"
-                    )
-                    return None
+        #         if not ret:
+        #             logger.warning("cv2.imencode failed to encode image into png format")
+        #             return None
 
-                png_str = base64.b64encode(img).decode("ascii")
-                logger.debug(f"Encoded image to {len(png_str)}-bytes png string")
-                return png_str
+        #         png_str = base64.b64encode(img).decode("ascii")
+        #         logger.debug(f"Encoded image to {len(png_str)}-bytes png string")
+        #         return png_str
 
         # no supported image processor
         return value
@@ -218,11 +216,10 @@ def create_child(params, id, item):
     """
     cleanups = []
 
-    # add
     params.items_by_id[id] = item
     list.append(params, [id, item])
-    # create remover
-    def remover():
+
+    def remover() -> None:
         del params.items_by_id[id]
         for pair in params:
             key, val = pair
@@ -303,10 +300,8 @@ class Params(list):
         return item
 
     def remove(self, id):
-        if not id in self.removers:
-            logging.warning(
-                "[Params.remove] could not find item with id `{}` to remove".format(id)
-            )
+        if id not in self.removers:
+            logging.warning("[Params.remove] could not find item with id `{}` to remove".format(id))
             return
 
         # find remover (are created in self.append)
@@ -328,7 +323,7 @@ class Params(list):
 
     def bool(self, id):
         def converter(v):
-            if type(v) == type(True) or type(v) == type(False):
+            if isinstance(v, bool):
                 return v
             if str(v).lower() in ["true", "1", "yes", "y"]:
                 return True

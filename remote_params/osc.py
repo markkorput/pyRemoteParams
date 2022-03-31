@@ -6,7 +6,7 @@ from typing import Any, Callable, Optional
 from pythonosc import dispatcher, osc_server, udp_client
 
 from .schema import schema_list
-from .server import Remote
+from .server import Remote, Server
 
 logger = logging.getLogger(__name__)
 
@@ -27,7 +27,7 @@ class Client:
       'localhost:6000'
     """
 
-    def __init__(self, server, id, prefix="/params"):
+    def __init__(self, server: "OscServer", id: str, prefix="/params") -> None:
         """
         Parameters
         ----------
@@ -41,15 +41,12 @@ class Client:
         prefix : str
           prefix to apply to all outgoing OSC message addresses
         """
-
         self.send_raw = server.send
 
         parts = id.split(":")
 
         if len(parts) < 2 or not str(parts[1]).isdigit():
-            logger.warning(
-                "[Connection.__init__] invalid response details: {}".format(id)
-            )
+            logger.warning("[Connection.__init__] invalid response details: {}".format(id))
             self.isValid = False
         else:
             self.host = parts[0]
@@ -61,27 +58,25 @@ class Client:
         self.schema_addr = prefix + "/schema"
         self.value_addr = prefix + "/value"
 
-    def send(self, addr, args=()):
-        self.send_raw(self.host, self.port, addr, args)
+    def send(self, addr: str, *args: Any) -> None:
+        self.send_raw(self.host, self.port, addr, *args)
 
-    def sendValue(self, path, value):
-        self.send(self.value_addr, (path, value))
+    def sendValue(self, path: str, value: Any) -> None:
+        self.send(self.value_addr, path, value)
 
-    def sendSchema(self, data):
-        if not self.isValid:
-            return
-        self.send(self.schema_addr, (json.dumps(data)))
+    def sendSchema(self, data: dict[str, Any]) -> None:
+        if self.isValid:
+            self.send(self.schema_addr, (json.dumps(data)))
 
-    def sendConnectConfirmation(self, data):
-        if not self.isValid:
-            return
-        self.send(self.connect_confirm_addr, (json.dumps(data)))
+    def sendConnectConfirmation(self, data: dict[str, Any]) -> None:
+        if self.isValid:
+            self.send(self.connect_confirm_addr, (json.dumps(data)))
 
-    def sendDisconnect(self):
+    def sendDisconnect(self) -> None:
         self.send(self.disconnect_addr)
 
     @classmethod
-    def send_message(cls, host: str, port: int, addr: str, *args) -> None:
+    def send_message(cls, host: str, port: int, addr: str, *args: Any) -> None:
         client = udp_client.SimpleUDPClient(host, port)
         client.send_message(addr, args)
 
@@ -92,7 +87,7 @@ class Connection:
     instructions from the Server and translates them into OSC actions
     """
 
-    def __init__(self, osc_server, id, connect=True):
+    def __init__(self, osc_server: "OscServer", id, connect=True):
         logger.debug("[Connection.__init__] id: {}".format(id))
         self.osc_server = osc_server
         self.server = osc_server.server
@@ -112,7 +107,7 @@ class Connection:
     def __del__(self):
         self.disconnect()
 
-    def disconnect(self):
+    def disconnect(self) -> None:
         self.osc_server = None  # break circular dependency
         # self.osc_server.connections.remove(self)
         self.isActive = False
@@ -120,41 +115,41 @@ class Connection:
         if self.remote and self.server:
             self.server.disconnect(self.remote)
 
-    def onValueToRemote(self, path, value):
+    def onValueToRemote(self, path, value) -> None:
         if not self.isActive:
             return
         self.client.sendValue(path, value)
 
-    def onSchemaToRemote(self, schema_data):
+    def onSchemaToRemote(self, schema_data) -> None:
         if not self.isActive:
             return
         self.client.sendSchema(schema_data)
 
-    def onConnectConfimToRemote(self, schema_data):
+    def onConnectConfimToRemote(self, schema_data) -> None:
         if not self.isActive:
             return
         self.client.sendConnectConfirmation(schema_data)
 
-    def onDisconnectToRemote(self):
-        logger.debug(
-            "[Connection.onDisconnectToRemote isActive={}]".format(self.isActive)
-        )
+    def onDisconnectToRemote(self) -> None:
+        logger.debug("[Connection.onDisconnectToRemote isActive={}]".format(self.isActive))
         if not self.isActive:
             return
         self.disconnect()
         self.client.sendDisconnect()
 
 
-def create_osc_listener(port=8000, callback=None):
+def create_osc_listener(
+    port: int = 8000, callback: Optional[Callable[..., None]] = None
+) -> tuple[osc_server.ThreadingOSCUDPServer, Callable[[], None]]:
     """
     Create a threaded OSC server that listens for incoming UDP messages
     """
     logger.debug("[create_osc_listener port={}]".format(port))
 
-    def handler(addr: str, *args: Any):
-        logger.debug("[create_osc_listener.handler] addr={} args={}".format(addr, args))
+    def handler(addr: str, *args: Any) -> None:
+        logger.debug(f"[create_osc_listener.handler] addr={addr} args={args}")
         if callback:
-            callback(addr, args)
+            callback(addr, *args)
 
     disp = dispatcher.Dispatcher()
     disp.set_default_handler(handler)
@@ -173,12 +168,12 @@ def create_osc_listener(port=8000, callback=None):
 class OscServer:
     def __init__(
         self,
-        server,
+        server: Server,
         port: int = 8000,
         prefix: str = "/params",
         capture_sends: Optional[Callable[[str, int, str, tuple], None]] = None,
         listen: bool = True,
-    ):
+    ) -> None:
         self.server = server
         self.port = port
         self.capture_sends = capture_sends
@@ -197,13 +192,11 @@ class OscServer:
 
         self.disconnect_listener = None
         if listen:
-            server, disconnect = create_osc_listener(
-                port=self.port, callback=self.receive
-            )
+            server, disconnect = create_osc_listener(port=self.port, callback=self.receive)
 
             self.disconnect_listener = disconnect
 
-    def __del__(self):
+    def __del__(self) -> None:
         self.stop()
 
     def stop(self) -> None:
@@ -219,7 +212,7 @@ class OscServer:
         if self.disconnect_listener:
             self.disconnect_listener()
 
-    def receive(self, addr, args):
+    def receive(self, addr: str, *args: Any) -> None:
         logger.debug("[OscServer.receive] addr={} args={}".format(addr, args))
 
         # Param value?
@@ -239,14 +232,15 @@ class OscServer:
         # Param value (with param ID in OSC address)
         if addr.startswith(self.value_addr):
             if len(args) == 1:
-                path = addr[len(self.value_addr) :]
+                length = len(self.value_addr)
+                path = addr[length:]
                 value = args[0]
                 self.onValueReceived(path, value)
             else:
                 logger.warning(
-                    "[OscServer.receive] received value message ({}) with invalid"
-                    " number ({}) of arguments: {}. Expecting one arguments (value)"
-                    .format(addr, len(args), args)
+                    f"[OscServer.receive] received value message ({addr}) with invalid"
+                    f" number ({len(args)}) of arguments: {args}. Expecting one"
+                    " arguments (value)"
                 )
             return
 
@@ -255,38 +249,35 @@ class OscServer:
             if len(args) == 1:
                 self.onConnect(args[0])
             else:
-                logger.warning(
-                    "[OscServer.receive] got connect message without host/port info"
-                )
+                logger.warning("[OscServer.receive] got connect message without host/port info")
             return
 
         # Schema request?
         if addr == self.schema_addr and len(args) == 1:
             self.onSchemaRequest(args[0])
 
-    def send(self, host, port, addr, args=()):
-        logger.debug(
-            "[OscServer.send host={} port={}] {} {}".format(host, port, addr, args)
-        )
+    def send(self, host: str, port: int, addr: str, *args: Any) -> None:
+        logger.debug(f"[OscServer.send host={host} port={port}] {addr} {args}")
         # for debugging only, really
         if self.capture_sends:
             self.capture_sends(host, port, addr, args)
             return
 
-        # client = OSCClient(host, port)
+        # client = OSCClient(host, port)x
+        print(args)
         Client.send_message(host, port, addr, *args)
 
-    def onConnect(self, response_info):
+    def onConnect(self, response_info: str) -> None:
         connection = Connection(self, response_info)
         if connection.isActive:
             self.connections.append(connection)
 
-    def onValueReceived(self, path, value):
-        logger.debug("[OscServer.onValueReceived path={} value={}]".format(path, value))
+    def onValueReceived(self, path: str, value: Any) -> None:
+        logger.debug(f"[OscServer.onValueReceived path={path} value={value}]")
         # pass it on to the server through our remote instance
         self.remote.incoming.valueEvent(path, value)
 
-    def onSchemaRequest(self, responseInfo):
+    def onSchemaRequest(self, responseInfo: str) -> None:
         Client(self, responseInfo).sendSchema(schema_list(self.server.params))
 
 
@@ -307,7 +298,7 @@ if __name__ == "__main__":
     params.string("name").onchange(log)
 
     # Create Server and Osc server
-    osc_server = OscServer(Server(params))
+    oscserver = OscServer(Server(params))
 
     try:
         print("Waiting for incoming messages")
@@ -317,3 +308,5 @@ if __name__ == "__main__":
 
     except KeyboardInterrupt:
         print("[timer] KeyboardInterrupt, stopping.")
+
+    oscserver.stop()

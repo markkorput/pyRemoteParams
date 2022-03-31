@@ -20,9 +20,7 @@ class HttpServer:
         self.httpServer = UtilHttpServer(port=port, start=False)
         self.httpServer.requestEvent += self.onHttpRequest
 
-        self.uiHtmlFilePath = os.path.abspath(
-            os.path.join(os.path.dirname(__file__), "ui.html")
-        )
+        self.uiHtmlFilePath = os.path.abspath(os.path.join(os.path.dirname(__file__), "ui.html"))
 
         if startServer:
             self.start()

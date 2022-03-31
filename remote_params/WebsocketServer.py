@@ -80,9 +80,7 @@ class WebsocketServer:
         websocket WebsocketServer instance
         """
         self.server.connect(self.remote)
-        self._ws_server = await websockets.serve(
-            self._connectionFunc, self.host, self.port
-        )
+        self._ws_server = await websockets.serve(self._connectionFunc, self.host, self.port)
         return self._ws_server
 
     def stop(self, joinThread=True):
@@ -191,9 +189,7 @@ class WebsocketServer:
         This method broadcasts the given msg to all connected websockets
         """
         logger.debug(
-            "sendToAllConnectedSockets: {} websocket remote(s): {}".format(
-                msg, len(self.sockets)
-            )
+            "sendToAllConnectedSockets: {} websocket remote(s): {}".format(msg, len(self.sockets))
         )
         for websocket in self.sockets:
             await websocket.send(msg)
@@ -237,7 +233,7 @@ if __name__ == "__main__":
         params.float("range", min=0.0, max=100.0)
         params.int("level")
         params.bool("highest-score")
-        voidParam = params.void("stop")
+        params.void("stop")
 
         gr = Params()
         gr.string("name").set("Jane Doe")
@@ -271,7 +267,7 @@ if __name__ == "__main__":
         params.float("range", min=0.0, max=100.0)
         params.int("level")
         params.bool("highest-score")
-        voidParam = params.void("stop")
+        params.void("stop")
 
         gr = Params()
         gr.string("name").set("Jane Doe")

@@ -12,16 +12,10 @@ if __name__ == "__main__":
         parser = OptionParser()
         parser.add_option("-p", "--port", dest="port", default=4445, type="int")
         parser.add_option("--host", dest="host", default="127.0.0.1")
-        parser.add_option(
-            "-s", "--show", dest="show", action="store_true", default=False
-        )
+        parser.add_option("-s", "--show", dest="show", action="store_true", default=False)
 
-        parser.add_option(
-            "-v", "--verbose", dest="verbose", action="store_true", default=False
-        )
-        parser.add_option(
-            "--verbosity", dest="verbosity", action="store_true", default="info"
-        )
+        parser.add_option("-v", "--verbose", dest="verbose", action="store_true", default=False)
+        parser.add_option("--verbosity", dest="verbosity", action="store_true", default="info")
 
         opts, args = parser.parse_args()
         lvl = {
