@@ -1,0 +1,30 @@
+[tool.poetry]
+name = "pyremoteparams"
+version = "0.1.0"
+description = ""
+authors = ["MArk van de Korput <dr.theman@gmail.com>"]
+packages = [{ include = "remote_params", "from" = "." }]
+
+[tool.poetry.dependencies]
+python = "^3.10"
+
+[tool.poetry.dev-dependencies]
+pytest = "^7.1.1"
+devtools = {version = "^0.8.0", extras = ["pygments"]}
+flake8 = "^4.0.1"
+isort = "^5.10.1"
+mypy = "^0.942"
+vulture = "^2.3"
+pytest-testmon = "^1.3.1"
+pytest-watch = "^4.2.0"
+black = "^22.3.0"
+pytest-mock = "^3.7.0"
+pytest-asyncio = "^0.18.3"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.pytest.ini_options]
+python_files = "*_test.py"
+asyncio_mode = "strict"

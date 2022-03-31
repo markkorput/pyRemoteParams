@@ -21,8 +21,8 @@ setup(name='remote_params',
       ],
       zip_safe=True,
       # include_package_data=True,
-      test_suite='nose.collector',
-      tests_require=['nose', 'asynctest'],
+      # test_suite='nose.collector',
+      # tests_require=['nose', 'asynctest'],
       classifiers=[
             'Development Status :: 3 - Alpha',      # Chose either "3 - Alpha", "4 - Beta" or "5 - Production/Stable" as the current state of your package
             'License :: OSI Approved :: MIT License',   # Again, pick a license
