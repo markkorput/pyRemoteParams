@@ -82,7 +82,7 @@ class HttpRequest:
         self.handler.respondWithFile(filePath)
 
     def unscope(self, scope):
-        if urlsplit == None or urlunsplit == None:
+        if urlsplit is None or urlunsplit is None:
             print("[HttpScope] unscope not working")
             return HttpRequest(self.path, self.handler, method=self.method)
 
@@ -104,7 +104,7 @@ def createRequestHandler(requestCallback, verbose=False):
         def respond(self, code=None, body=None, headers=None):
             self.hasResponded = True
 
-            if code == None:
+            if code is None:
                 self.send_response(404)
                 self.end_headers()
                 # self.wfile.close()

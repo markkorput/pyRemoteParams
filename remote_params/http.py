@@ -1,14 +1,8 @@
 import logging
 import os.path
 
-from remote_params import (
-    Params,
-    Remote,  # , create_sync_params, schema_list
-    Server,
-    schema_list,
-)
-
 from .http_utils import HttpServer as UtilHttpServer
+from .server import Remote
 
 logger = logging.getLogger(__name__)
 

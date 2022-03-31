@@ -1,18 +1,21 @@
 import base64
-import distutils
+
+# import distutils
 import logging
 
 from evento import Event
 
-try:
-    import cv2
-except:
-    cv2 = None  # not supported
+# try:
+#     import cv2
+# except:
+#     cv2 = None  # not supported
+cv2 = None
 
-try:
-    import numpy as np
-except:
-    np = None  # numpy not supported
+# try:
+#     import numpy as np
+# except:
+#     np = None  # numpy not supported
+np = None
 
 logger = logging.getLogger(__name__)
 
@@ -350,4 +353,4 @@ class Params(list):
         self.append(id, params)
 
     def get(self, id):
-        return self.items_by_id[id] if id in self.items_by_id else None
+        return self.items_by_id.get(id, None)

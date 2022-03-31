@@ -150,7 +150,7 @@ class Server:
     def disconnect(self, remote):
         logger.debug("[Server.disconnect]")
 
-        if not remote in self.connections:
+        if remote not in self.connections:
             logger.warning("[Server.disconnect] could not find connection")
             return
 

@@ -73,7 +73,7 @@ def remove_path(params, path):
 
 
 def create_param(param_data):
-    if not "type" in param_data:
+    if "type" not in param_data:
         return None
 
     if param_data["type"] == "i":
