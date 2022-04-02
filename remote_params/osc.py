@@ -158,6 +158,7 @@ def create_osc_listener(
     disp.set_default_handler(handler)
     server = osc_server.ThreadingOSCUDPServer(("0.0.0.0", port), disp)
 
+    print(f"Starting OSC listener on port {port}")
     thread = threading.Thread(target=server.serve_forever)
 
     def disconnect() -> None:
