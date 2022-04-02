@@ -8,8 +8,9 @@ from typing import Any, Optional, Union
 from websockets import exceptions
 from websockets import server as wsserver
 
-from remote_params.schema import schema_list
-from remote_params.server import Remote, Server
+from .params import Params
+from .schema import schema_list
+from .server import Remote, Server
 
 DEFAULT_PORT = 8081
 
@@ -29,12 +30,12 @@ class WebsocketServer:
 
     def __init__(
         self,
-        server: Server,
+        server: Union[Server, Params],
         host: str = "0.0.0.0",
         port: int = DEFAULT_PORT,
         start: bool = True,
     ):
-        self.server = server
+        self.server = server if isinstance(server, Server) else Server(server)
         self.host = host
         self.port = port
         self.thread: Optional[threading.Thread] = None
