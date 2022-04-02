@@ -92,8 +92,8 @@ class Server:
         self.connections: dict[Remote, Callable[[], None]] = {}
 
         self.cleanups: list[Callable[[], None]] = []
-        self.cleanups.append(self.params.schemaChangeEvent.add(self.broadcast_schema))
-        self.cleanups.append(self.params.valueChangeEvent.add(self.broadcast_value_change))
+        self.cleanups.append(self.params.on_schema_change.add(self.broadcast_schema))
+        self.cleanups.append(self.params.on_value_change.add(self.broadcast_value_change))
 
         self.updateFuncs: list[Callable[[], None]] = []
 

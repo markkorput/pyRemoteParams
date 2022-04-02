@@ -21,7 +21,7 @@ class Param(Generic[T]):
         self.parser = parser
         self.opts = opts
 
-        self.changeEvent: Event[T] = Event()
+        self.on_change: Event[T] = Event()
 
     def parse(self, value: Any) -> None:
         assert self.parser
@@ -34,20 +34,13 @@ class Param(Generic[T]):
             return
 
         self.value = v
-        self.changeEvent(self.value)
+        self.on_change(self.value)
 
-    def val(self) -> T:
+    def get(self) -> T:
         return self.value
 
     def _equals(self, v1: Optional[T], v2: Optional[T]) -> bool:
         return v1 is v2
-
-    def onchange(self, func: Callable[[T], None]) -> None:
-        def _f(val: Optional[T]) -> None:
-            if val:
-                func(val)
-
-        self.changeEvent += _f
 
     def to_dict(self) -> dict[str, Any]:
         d: dict[str, Any] = {"type": self.type, "value": self.value}

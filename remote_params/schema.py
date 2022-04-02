@@ -36,8 +36,8 @@ def set_path(params: Params, path: str, param: Param[Any]) -> None:
         item = current.get(id)
         if not isinstance(item, Params):
             logger.warning(
-                "[set_path path=`{}`] could not set path because parent {} is not a Params group"
-                .format(path, id)
+                f"[set_path path=`{path}`] could not set path because parent {id} is not a Params"
+                " group"
             )
             return
 
@@ -54,7 +54,7 @@ def remove_path(params: Params, path: str) -> None:
 
     parent = params.get(parent_path)
     if not parent or not isinstance(parent, Params):
-        logger.warning("[remove_path] could not find parent with path: {}".format(parent_path))
+        logger.warning(f"[remove_path] could not find parent with path: {parent_path}")
         return
 
     parent.remove(param_id)
@@ -127,7 +127,7 @@ def get_values(params: Params) -> dict[str, Any]:
         if isinstance(item, ImageParam):
             values[id] = item.get_serialized()
         elif isinstance(item, Param):
-            values[id] = item.val()
+            values[id] = item.get()
         else:
             values[id] = get_values(item)
 

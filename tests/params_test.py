@@ -11,7 +11,7 @@ class TestParams:
         assert isinstance(param, Param)
 
         param.set(4)
-        assert param.val() == "4"
+        assert param.get() == "4"
 
     def test_int(self):
         params = Params()
@@ -20,7 +20,7 @@ class TestParams:
         assert isinstance(param, Param)
 
         param.set("4")
-        assert param.val() == 4
+        assert param.get() == 4
         with pytest.raises(ValueError):
             param.set("zzz")
 
@@ -31,20 +31,20 @@ class TestParams:
         assert isinstance(param, Param)
 
         param.set("true")
-        assert param.val()
-        assert param.changeEvent._fireCount == 1
+        assert param.get()
+        assert param.on_change._fireCount == 1
 
         param.set("xxx")  # will not change the value
-        assert param.val()
-        assert param.changeEvent._fireCount == 1
+        assert param.get()
+        assert param.on_change._fireCount == 1
 
         param.set("false")
-        assert not param.val()
-        assert param.changeEvent._fireCount == 2
+        assert not param.get()
+        assert param.on_change._fireCount == 2
 
         param.set("yyy")  # will not change the value
-        assert param.val()
-        assert param.changeEvent._fireCount == 3
+        assert param.get()
+        assert param.on_change._fireCount == 3
 
     def test_float(self):
         params = Params()
@@ -53,7 +53,7 @@ class TestParams:
         assert isinstance(param, Param)
 
         param.set("4.81")
-        assert param.val() == 4.81
+        assert param.get() == 4.81
         with pytest.raises(ValueError):
             param.set("zzz")
 
@@ -63,7 +63,7 @@ class TestParams:
         assert exitparam.to_dict()["type"] == "v"
 
         exits = []
-        exitparam.onchange(exits.append)
+        exitparam.on_change += exits.append
         assert len(exits) == 0
         exitparam.set(1)
         assert len(exits) == 1
@@ -99,20 +99,20 @@ class TestParams:
 
     def test_propagates_param_changes(self):
         p = Params()
-        assert p.changeEvent._fireCount == 0
+        assert p.on_change._fireCount == 0
         name = p.string("name")
-        assert p.changeEvent._fireCount == 1
+        assert p.on_change._fireCount == 1
         name.set("John")
-        assert p.changeEvent._fireCount == 2
+        assert p.on_change._fireCount == 2
 
     def test_propagates_params_changes(self):
         p = Params()
         assert len(p) == 0
         p2 = Params()
         p.group("P2", p2)
-        assert p.changeEvent._fireCount == 1
+        assert p.on_change._fireCount == 1
         p2.int("foo")
-        assert p.changeEvent._fireCount == 2
+        assert p.on_change._fireCount == 2
 
     def test_get(self):
         params = Params()
@@ -125,6 +125,15 @@ class TestParams:
         pars.string("foo")
         assert pars.get_path("/bar") is None
 
+    def test_duplicate_id(self):
+        params = Params()
+        p = params.string("foo")
+        assert p.type == "s"
+        assert len(params) == 1
+        p = params.int("foo")
+        assert p.type == "i"
+        assert len(params) == 1
+
 
 class TestParam:
     def test_opts(self):
@@ -136,15 +145,15 @@ class TestIntParam:
     def test_set_with_invalid_value(self):
         p = IntParam()
         p.set(4)
-        assert p.val() == 4
+        assert p.get() == 4
 
         with pytest.raises(ValueError):
             p.set("abc")
 
-        assert p.val() == 4
+        assert p.get() == 4
 
         p.set("05")
-        assert p.val() == 5
+        assert p.get() == 5
 
     def test_to_dict(self):
         p = IntParam(min=5, max=10)
@@ -155,12 +164,12 @@ class TestFloatParam:
     def test_set_with_invalid_value(self):
         p = FloatParam()
         p.set(4.0)
-        assert p.val() == 4.0
+        assert p.get() == 4.0
         with pytest.raises(ValueError):
             p.set("abc")
-        assert p.val() == 4.0
+        assert p.get() == 4.0
         p.set("05")
-        assert p.val() == 5.0
+        assert p.get() == 5.0
 
     def test_to_dict(self):
         p = IntParam(min=5, max=10)

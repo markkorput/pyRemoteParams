@@ -1,6 +1,6 @@
 import logging
 from collections import OrderedDict
-from typing import Any, Callable, Optional, TypeVar, Union, overload
+from typing import Any, Callable, Optional, TypeVar, Union
 
 from evento import decorators
 
@@ -12,28 +12,28 @@ log = logging.getLogger(__name__)
 T = TypeVar("T")
 
 
-def changeEvent() -> None:
+def on_change() -> None:
     ...
 
 
-def schemaChangeEvent() -> None:
+def on_schema_change() -> None:
     ...
 
 
-def valueChangeEvent(path: str, value: Any, param: Param[Any]) -> None:
+def on_value_change(path: str, value: Any, param: Param[Any]) -> None:
     ...
 
 
 class Params(OrderedDict[str, Union[Param[Any], "Params"]]):
     def __init__(self) -> None:
-        self.changeEvent = decorators.event(changeEvent)
-        self.schemaChangeEvent = decorators.event(schemaChangeEvent)
-        self.valueChangeEvent = decorators.event(valueChangeEvent)
+        self.on_change = decorators.event(on_change)
+        self.on_schema_change = decorators.event(on_schema_change)
+        self.on_value_change = decorators.event(on_value_change)
 
         self.removers: dict[str, Callable[[], None]] = {}
 
     def __del__(self) -> None:
-        for id in self.removers:
+        for id in list(self.removers.keys()):
             remover = self.removers[id]
             remover()
 
@@ -50,39 +50,36 @@ class Params(OrderedDict[str, Union[Param[Any], "Params"]]):
 
         return current
 
-    @overload
-    def append(self, id: str, item: Param[T]) -> Param[T]:
-        ...
+    def append(self, id: str, item: Union[Param[T], "Params"]) -> Callable[[], None]:
+        if self.get(id, None):
+            logging.warning("Param with duplicate ID: {}".format(id))
+            self.remove(id)
 
-    @overload
-    def append(self, id: str, item: "Params") -> "Params":
-        ...
+        return self._add(id, item)
 
-    def append(self, id: str, item: Union[Param[T], "Params"]) -> Union[Param[T], "Params"]:
-        if existing := self.get(id, None):
-            logging.warning("Params already has an item with ID: {}".format(id))
-            return existing
+    def remove(self, item: Union[str, Param[Any]]) -> None:
+        id = self._get_id(item) if isinstance(item, Param) else item
 
-        remover = self._create_child(id, item)
-        self.removers[id] = remover
-        return item
-
-    def remove(self, id: str) -> None:
-        if id not in self.removers:
-            logging.warning("[Params.remove] could not find item with id `{}` to remove".format(id))
+        if not id or id not in self.removers:
+            logging.warning("Could not find item {}to remove".format("(id={id}) " if id else ""))
             return
 
-        # find remover (are created in self.append)
-        remover = self.removers[id]
-        del self.removers[id]
-        # run remover
-        remover()
+        self.removers[id]()
+
+    # types
+
+    def group(self, id: str, params: "Params") -> None:
+        self.append(id, params)
 
     def string(self, id: str) -> Param[str]:
-        return self.append(id, Param("s", "", parser=str))
+        param = Param("s", "", parser=str)
+        self.append(id, param)
+        return param
 
     def int(self, id: str, min: Optional[int] = None, max: Optional[int] = None) -> Param[int]:
-        return self.append(id, IntParam(min=min, max=max))
+        param = IntParam(min=min, max=max)
+        self.append(id, param)
+        return param
 
     def bool(self, id: str) -> Param[bool]:
         def converter(v: Any) -> bool:
@@ -90,7 +87,9 @@ class Params(OrderedDict[str, Union[Param[Any], "Params"]]):
                 return False
             return bool(v)
 
-        return self.append(id, Param[bool]("b", False, parser=converter))
+        param = Param[bool]("b", False, parser=converter)
+        self.append(id, param)
+        return param
 
     def float(
         self, id: str, min: Optional[float] = None, max: Optional[float] = None
@@ -109,10 +108,10 @@ class Params(OrderedDict[str, Union[Param[Any], "Params"]]):
         self.append(id, p)
         return p
 
-    def group(self, id: str, params: "Params") -> None:
-        self.append(id, params)
+    def _get_id(self, param: Param[Any]) -> Optional[str]:
+        return next((id for id, item in self.items() if item == param), None)
 
-    def _create_child(self, id: str, item: Union[Param[Any], "Params"]) -> Callable[[], None]:
+    def _add(self, id: str, item: Union[Param[Any], "Params"]) -> Callable[[], None]:
         """
         Adds a new item (param or sub-params-group) to self.
         Returns a callable (without args) that removes the added param
@@ -123,8 +122,8 @@ class Params(OrderedDict[str, Union[Param[Any], "Params"]]):
 
         def remover() -> None:
             del self[id]
-            self.schemaChangeEvent()
-            self.changeEvent()
+            self.on_schema_change()
+            self.on_change()
 
         cleanups.append(remover)
 
@@ -132,29 +131,31 @@ class Params(OrderedDict[str, Union[Param[Any], "Params"]]):
         if isinstance(item, Param):
 
             def onchange(v: Any) -> None:
-                self.changeEvent()
+                self.on_change()
                 if isinstance(item, Param):
-                    self.valueChangeEvent("/" + id, item.val(), item)
+                    self.on_value_change("/" + id, item.get(), item)
 
-            _remove = item.changeEvent.add(onchange)
+            _remove = item.on_change.add(onchange)
             cleanups.append(_remove)
 
         # another sub-self-group added?
         if isinstance(item, Params):
-            item.changeEvent += self.changeEvent.fire
-            item.schemaChangeEvent += self.schemaChangeEvent.fire
+            item.on_change += self.on_change.fire
+            item.on_schema_change += self.on_schema_change.fire
 
             def forwardValChange(path: str, val: Any, param: Param[Any]) -> None:
-                self.valueChangeEvent("/" + id + path, val, param)
+                self.on_value_change("/" + id + path, val, param)
 
-            _remove = item.valueChangeEvent.add(forwardValChange)
+            _remove = item.on_value_change.add(forwardValChange)
             cleanups.append(_remove)
 
-        self.schemaChangeEvent()
-        self.changeEvent()
+        self.on_schema_change()
+        self.on_change()
 
         def _remove_child() -> None:
+            del self.removers[id]
             for c in cleanups:
                 c()
 
+        self.removers[id] = _remove_child
         return _remove_child

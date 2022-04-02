@@ -64,36 +64,36 @@ class TestServer:
         p1 = server.create_sync_params(r1)
 
         # before
-        assert p1.get("name").val() == "Abe"
+        assert p1.get("name").get() == "Abe"
 
         # action-1; param value change
         pars.get("name").set("Bob")
 
         # after-1; verify value change arrived at r1
-        assert p1.get("name").val() == "Bob"
+        assert p1.get("name").get() == "Bob"
 
         # action-1.1; r1 send value change
         r1.incoming.valueEvent("/name", "Cat")
 
         # after-1; verify value change was processed by server
-        assert pars.get("name").val() == "Cat"
+        assert pars.get("name").get() == "Cat"
         # ... and was sent back to r1
-        assert p1.get("name").val() == "Cat"
+        assert p1.get("name").get() == "Cat"
 
         # action-2; param value changes AFTER r1 disconnects
         s.disconnect(r1)
         pars.get("name").set("Don")
 
         # after-2; verify value change did NOT arrive at r1
-        assert p1.get("name").val() == "Cat"
+        assert p1.get("name").get() == "Cat"
 
         # action-2.1; r1 send value change
         r1.incoming.valueEvent("/name", "Eve")
 
         # after-1; verify value change was NOT processed by server
-        assert pars.get("name").val() == "Don"
+        assert pars.get("name").get() == "Don"
         # ... and was NOT sent back to r1
-        assert p1.get("name").val() == "Cat"
+        assert p1.get("name").get() == "Cat"
 
     def test_disconnect_with_invalid_remote(self):
         # params
@@ -119,8 +119,8 @@ class TestServer:
         # remote sends value change event
         r1.incoming.valueEvent("/name", "Bob")
         # incoming value NOT effectuated yet (operation queued)
-        assert pars.get("name").val() == "Abe"
+        assert pars.get("name").get() == "Abe"
         # process queued operations
         s.update()
         # incoming value effectuated
-        assert pars.get("name").val() == "Bob"
+        assert pars.get("name").get() == "Bob"

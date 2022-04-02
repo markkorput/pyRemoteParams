@@ -87,7 +87,7 @@ class VoidParam(Param[int]):
         def _middleman(_: int) -> None:
             func()
 
-        self.changeEvent += _middleman
+        self.on_change += _middleman
 
 
 class ImageParam(Param[Any]):
@@ -116,7 +116,7 @@ class ImageParam(Param[Any]):
     #   return None
 
     def get_serialized(self) -> str:
-        return self.serialize_value(self.val())
+        return self.serialize_value(self.get())
 
     def set_serialized(self, v: Any) -> None:
         raise NotImplementedError

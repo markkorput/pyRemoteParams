@@ -91,6 +91,6 @@ class TestSchema:
         pars.group("subgroup", subpars)
 
         schema.set_values(pars, {"count": 5, "price": 0.5, "subgroup": {"flag": False}})
-        assert pars.get("count").val() == 5
-        assert pars.get("price").val() == 0.5
-        assert not pars.get("subgroup").get("flag").val()
+        assert pars.get("count").get() == 5
+        assert pars.get("price").get() == 0.5
+        assert not pars.get("subgroup").get("flag").get()

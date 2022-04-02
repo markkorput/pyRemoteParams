@@ -56,11 +56,11 @@ class TestOsc:
         #
         # Client sends new value
         #
-        assert params.get("name").val() == ""
+        assert params.get("name").get() == ""
         # send_log.clear()
         osc_server.receive("/params/value", "/name", "Fab")
         # verify value got applied into our local params
-        assert params.get("name").val() == "Fab"
+        assert params.get("name").get() == "Fab"
         # verify the value was broadcasted back to client
         # assert send_log == [("127.0.0.1", 8081, "/params/value", ("/name", "Fab"))]
         assert len(sendmock.call_args_list) == 2

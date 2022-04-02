@@ -281,7 +281,7 @@ if __name__ == "__main__":
 
     # Create params
     params = Params()
-    params.string("name").onchange(print)
+    params.string("name").on_change += print
 
     # Create Server and Osc server
     oscserver = OscServer(Server(params))

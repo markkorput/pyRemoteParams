@@ -44,7 +44,7 @@
 #         try:
 #             while True:
 #                 t = time.time()
-#                 hz = fps.val()
+#                 hz = fps.get()
 
 #                 if t >= nextTime and hz > 0.00001:
 #                     self.update()
