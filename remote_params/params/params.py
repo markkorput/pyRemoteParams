@@ -79,10 +79,10 @@ class Params(OrderedDict[str, Union[Param[Any], "Params"]]):
         remover()
 
     def string(self, id: str) -> Param[str]:
-        return self.append(id, Param("s", setter=str))
+        return self.append(id, Param("s", "", parser=str))
 
     def int(self, id: str, min: Optional[int] = None, max: Optional[int] = None) -> Param[int]:
-        return self.append(id, IntParam(min, max))
+        return self.append(id, IntParam(min=min, max=max))
 
     def bool(self, id: str) -> Param[bool]:
         def converter(v: Any) -> bool:
@@ -90,12 +90,12 @@ class Params(OrderedDict[str, Union[Param[Any], "Params"]]):
                 return False
             return bool(v)
 
-        return self.append(id, Param[bool]("b", setter=converter))
+        return self.append(id, Param[bool]("b", False, parser=converter))
 
     def float(
         self, id: str, min: Optional[float] = None, max: Optional[float] = None
     ) -> FloatParam:
-        p = FloatParam(min, max)
+        p = FloatParam(min=min, max=max)
         self.append(id, p)
         return p
 

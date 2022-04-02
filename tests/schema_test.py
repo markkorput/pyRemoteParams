@@ -22,12 +22,12 @@ class TestSchema:
         pars.group("details", details)
 
         assert schema.schema_list(pars) == [
-            {"path": "/name", "type": "s"},
-            {"path": "/count", "type": "i"},
-            {"path": "/price", "type": "f"},
-            {"path": "/soldout", "type": "b"},
-            {"path": "/details/page_count", "type": "i"},
-            {"path": "/details/author", "type": "s"},
+            {"value": "", "path": "/name", "type": "s"},
+            {"value": 0, "path": "/count", "type": "i"},
+            {"value": 0.0, "path": "/price", "type": "f"},
+            {"value": False, "path": "/soldout", "type": "b"},
+            {"value": 0, "path": "/details/page_count", "type": "i"},
+            {"value": "", "path": "/details/author", "type": "s"},
         ]
 
     def test_schema_list_with_values(self):
@@ -57,11 +57,11 @@ class TestSchema:
         pars.float("price", min=0.0, max=1.0).set(9.99)
 
         assert schema.schema_list(pars) == [
-            {"path": "/count", "type": "i", "value": 3, "opts": {"min": 3, "max": 10}},
+            {"path": "/count", "type": "i", "value": 0, "opts": {"min": 3, "max": 10}},
             {
                 "path": "/price",
                 "type": "f",
-                "value": 1.0,
+                "value": 0.0,
                 "opts": {"min": 0.0, "max": 1.0},
             },
         ]

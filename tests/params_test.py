@@ -1,3 +1,5 @@
+import pytest
+
 from remote_params import FloatParam, IntParam, Param, Params
 
 
@@ -19,8 +21,8 @@ class TestParams:
 
         param.set("4")
         assert param.val() == 4
-        param.set("zzz")
-        assert param.val() == 4
+        with pytest.raises(ValueError):
+            param.set("zzz")
 
     def test_bool(self):
         params = Params()
@@ -52,8 +54,8 @@ class TestParams:
 
         param.set("4.81")
         assert param.val() == 4.81
-        param.set("zzz")
-        assert param.val() == 4.81
+        with pytest.raises(ValueError):
+            param.set("zzz")
 
     def test_void(self):
         p = Params()
@@ -125,19 +127,8 @@ class TestParams:
 
 
 class TestParam:
-    def test_setter(self):
-        p = Param("f", setter=float)
-        p.set("5.50")
-        assert p.val() == 5.5
-
-    def test_getter(self):
-        p = Param("f", getter=float)
-        p.set("5.50")
-        assert p.value == "5.50"
-        assert p.val() == 5.50
-
     def test_opts(self):
-        p = Param("s", minlength=3)
+        p = Param("s", "", minlength=3)
         assert p.opts == {"minlength": 3}
 
 
@@ -146,14 +137,18 @@ class TestIntParam:
         p = IntParam()
         p.set(4)
         assert p.val() == 4
-        p.set("abc")
+
+        with pytest.raises(ValueError):
+            p.set("abc")
+
         assert p.val() == 4
+
         p.set("05")
         assert p.val() == 5
 
     def test_to_dict(self):
         p = IntParam(min=5, max=10)
-        assert p.to_dict() == {"type": "i", "opts": {"min": 5, "max": 10}}
+        assert p.to_dict() == {"type": "i", "value": 0, "opts": {"min": 5, "max": 10}}
 
 
 class TestFloatParam:
@@ -161,11 +156,12 @@ class TestFloatParam:
         p = FloatParam()
         p.set(4.0)
         assert p.val() == 4.0
-        p.set("abc")
+        with pytest.raises(ValueError):
+            p.set("abc")
         assert p.val() == 4.0
         p.set("05")
         assert p.val() == 5.0
 
     def test_to_dict(self):
         p = IntParam(min=5, max=10)
-        assert p.to_dict() == {"type": "i", "opts": {"min": 5, "max": 10}}
+        assert p.to_dict() == {"type": "i", "value": 0.0, "opts": {"min": 5, "max": 10}}

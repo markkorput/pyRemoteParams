@@ -1,7 +1,7 @@
 # import base64
 # import distutils
 import logging
-from typing import Any, Callable, Generic, Optional, TypeVar, cast
+from typing import Any, Callable, Generic, Optional, SupportsFloat, TypeVar
 
 from .param import Param
 
@@ -22,7 +22,7 @@ from .param import Param
 
 logger = logging.getLogger(__name__)
 
-T = TypeVar("T")
+T = TypeVar("T", bound=SupportsFloat)
 
 
 class _NumberParam(Generic[T], Param[T]):
@@ -32,50 +32,35 @@ class _NumberParam(Generic[T], Param[T]):
     converter: Callable[[Any], T] = _default_converter
     type_identifier: str
 
-    def __init__(self, min: Optional[T] = None, max: Optional[T] = None) -> None:
-        if min is not None:
-            min = self._convert(min, self.__class__.converter, fallback=None)
+    @property
+    def min(self) -> Optional[T]:
+        return self.opts.get("min", None)
 
-        if max is not None:
-            max = self._convert(max, self.__class__.converter, fallback=None)
+    @property
+    def max(self) -> Optional[T]:
+        return self.opts.get("max", None)
 
-        super().__init__(self.type_identifier, setter=self.convert, min=min, max=max)
-
-    def convert(self, v: Any) -> T:
-        result = self._convert(
-            v,
-            self.__class__.converter,
-            fallback=self.value,
-            min=self.opts.get("min", None),
-            max=self.opts.get("max", None),
+    def __init__(
+        self, value: Optional[T] = None, *, min: Optional[T] = None, max: Optional[T] = None
+    ) -> None:
+        v = self.__class__.converter(0) if value is None else value
+        super().__init__(
+            self.type_identifier,
+            value=v,
+            parser=self.__class__.converter,
+            min=min,
+            max=max,
         )
-        assert result is not None
-        return result
 
-    @staticmethod
-    def _convert(
-        v: T,
-        converter: Callable[[Any], T],
-        *,
-        fallback: Optional[T],
-        min: Optional[T] = None,
-        max: Optional[T] = None,
-    ) -> Optional[T]:
-        val: Optional[T] = None
+    def set(self, value: T) -> None:
+        fl = float(value)
 
-        try:
-            val = converter(v)
-        except ValueError:
-            logger.warning("Param could not convert value to int: {}".format(v))
-            val = fallback
+        if self.min is not None and fl < float(self.min):
+            return
+        if self.max is not None and fl > float(self.max):
+            return
 
-        if val is not None and min is not None and val < min:  # type: ignore
-            val = min
-
-        if val is not None and max is not None and val > max:  # type: ignore
-            val = max
-
-        return val
+        super().set(value)
 
 
 class IntParam(_NumberParam[int]):
@@ -93,7 +78,7 @@ class VoidParam(Param[int]):
         super().__init__("v", 0)
 
     def set(self, _: Any) -> None:
-        return super().set(cast(int, self.value) + 1)
+        return super().set(self.value + 1)
 
     def trigger(self) -> None:
         self.set(0)

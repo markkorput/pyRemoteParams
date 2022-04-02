@@ -12,29 +12,32 @@ class Param(Generic[T]):
     def __init__(
         self,
         type_: str,
-        default: Optional[T] = None,
-        getter: Optional[Callable[[Any], T]] = None,
-        setter: Optional[Callable[[Any], T]] = None,
+        value: T,
+        parser: Optional[Callable[[Any], T]] = None,
         **opts: Any,
     ) -> None:
         self.type = type_
-        self.value = default
-        self.default = default
-        self.getter = self._makeSafe(getter) if getter else None
-        self.setter = self._makeSafe(setter) if setter else None
+        self.value = value
+        self.parser = parser
         self.opts = opts
 
         self.changeEvent: Event[T] = Event()
 
+    def parse(self, value: Any) -> None:
+        assert self.parser
+        self.set(self.parser(value))
+
     def set(self, value: T) -> None:
-        v = self.setter(value) if self.setter else value
+        v = self.parser(value) if self.parser else value
 
         if self._equals(v, self.value):
             return
 
         self.value = v
-        logger.debug("[Param.set] changevent")
         self.changeEvent(self.value)
+
+    def val(self) -> T:
+        return self.value
 
     def _equals(self, v1: Optional[T], v2: Optional[T]) -> bool:
         return v1 is v2
@@ -46,34 +49,10 @@ class Param(Generic[T]):
 
         self.changeEvent += _f
 
-    def is_initialized(self) -> bool:
-        return self.value is not None
-
-    def val(self) -> Optional[T]:
-        v = self.value if self.is_initialized() else self.default
-        return self.getter(v) if self.getter else v
-
     def to_dict(self) -> dict[str, Any]:
-        d: dict[str, Any] = {"type": self.type}
-
-        if self.is_initialized():
-            d["value"] = self.value
+        d: dict[str, Any] = {"type": self.type, "value": self.value}
 
         if opts := {k: v for k, v in self.opts.items() if v is not None}:
             d["opts"] = opts
 
         return d
-
-    def _makeSafe(
-        self, func: Callable[[Optional[T]], Optional[T]]
-    ) -> Callable[[Optional[T]], Optional[T]]:
-        def safeFunc(val: Optional[T]) -> Optional[T]:
-            v: Optional[T] = val
-            try:
-                v = func(val)
-            except ValueError:
-                v = self.value
-
-            return v
-
-        return safeFunc

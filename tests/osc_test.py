@@ -56,7 +56,7 @@ class TestOsc:
         #
         # Client sends new value
         #
-        assert params.get("name").val() is None
+        assert params.get("name").val() == ""
         # send_log.clear()
         osc_server.receive("/params/value", "/name", "Fab")
         # verify value got applied into our local params

@@ -61,22 +61,24 @@ def remove_path(params: Params, path: str) -> None:
 
 
 def create_param(param_data: dict[str, Any]) -> Optional[Param[Any]]:
-    if "type" not in param_data:
+    if "type" not in param_data or "value" not in param_data:
         return None
 
     if param_data["type"] == "i":
         return IntParam(
+            value=param_data["value"],
             min=param_data["min"] if "min" in param_data else None,
             max=param_data["max"] if "max" in param_data else None,
         )
 
     if param_data["type"] == "f":
         return FloatParam(
+            value=param_data["value"],
             min=param_data["min"] if "min" in param_data else None,
             max=param_data["max"] if "max" in param_data else None,
         )
 
-    return Param(param_data["type"])
+    return Param(param_data["type"], param_data["value"])
 
 
 def update_param(param: Param[Any], param_data: dict[str, Any]) -> None:
