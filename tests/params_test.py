@@ -118,6 +118,11 @@ class TestParams:
         assert params.get("check") == param
         assert params.get("foo") is None
 
+    def test_get_path_with_invalid_path(self):
+        pars = Params()
+        pars.string("foo")
+        assert pars.get_path(pars, "/bar") is None
+
 
 class TestParam:
     def test_setter(self):

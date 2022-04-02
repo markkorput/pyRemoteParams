@@ -9,11 +9,6 @@ class TestSchema:
         pars = Params()
         assert schema.schema_list(pars) == []
 
-    def test_get_path_with_invalid_path(self):
-        pars = Params()
-        pars.string("foo")
-        assert schema.get_path(pars, "/bar") is None
-
     def test_schema_list(self):
         pars = Params()
         pars.string("name")

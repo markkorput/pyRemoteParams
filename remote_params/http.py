@@ -1,14 +1,15 @@
 import logging
 import os.path
 
+from .http_utils import HttpRequest
 from .http_utils import HttpServer as UtilHttpServer
-from .server import Remote
+from .server import Remote, Server
 
 logger = logging.getLogger(__name__)
 
 
 class HttpServer:
-    def __init__(self, server, port=8080, startServer=True):
+    def __init__(self, server: Server, port: int = 8080, startServer: bool = True) -> None:
         self.server = server
         self.remote = Remote()
 
@@ -18,25 +19,25 @@ class HttpServer:
             self.server.connect(self.remote)
 
         self.httpServer = UtilHttpServer(port=port, start=False)
-        self.httpServer.requestEvent += self.onHttpRequest
+        self.httpServer.requestEvent += self._on_http_request
 
         self.uiHtmlFilePath = os.path.abspath(os.path.join(os.path.dirname(__file__), "ui.html"))
 
         if startServer:
             self.start()
 
-    def __del__(self):
+    def __del__(self) -> None:
         if self.server and self.remote:
             self.server.disconnect(self.remote)
 
-    def start(self):
+    def start(self) -> None:
         logger.info("Starting HTTP server on port: {}".format(self.httpServer.port))
         self.httpServer.startServer()
 
-    def stop(self):
+    def stop(self) -> None:
         self.httpServer.stopServer()
 
-    def onHttpRequest(self, req):
+    def _on_http_request(self, req: HttpRequest) -> None:
         # logger.info('HTTP req: {}'.format(req))
         # logger.info('HTTP req path: {}'.format(req.path))
 

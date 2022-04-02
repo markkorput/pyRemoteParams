@@ -106,12 +106,12 @@ class TestServer:
         s.disconnect(r)
         s.disconnect(None)
 
-    def test_option_queueIncomingValuesUntilUpdate(self):
+    def test_enqueue_option(self):
         # params
         pars = Params()
         pars.string("name").set("Abe")
         # server
-        s = server.Server(pars, queueIncomingValuesUntilUpdate=True)
+        s = server.Server(pars, enqueue=True)
         # remote
         r1 = server.Remote()
         s.connect(r1)

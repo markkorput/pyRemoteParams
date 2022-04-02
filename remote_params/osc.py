@@ -5,7 +5,7 @@ from typing import Any, Callable, Optional
 
 from pythonosc import dispatcher, osc_server, udp_client
 
-from .schema import schema_list
+from .schema import SchemaData, schema_list
 from .server import Remote, Server
 
 logger = logging.getLogger(__name__)
@@ -27,7 +27,7 @@ class Client:
       'localhost:6000'
     """
 
-    def __init__(self, server: "OscServer", id: str, prefix="/params") -> None:
+    def __init__(self, server: "OscServer", id: str, prefix: str = " /params") -> None:
         """
         Parameters
         ----------
@@ -64,19 +64,19 @@ class Client:
     def sendValue(self, path: str, value: Any) -> None:
         self.send(self.value_addr, path, value)
 
-    def sendSchema(self, data: dict[str, Any]) -> None:
+    def sendSchema(self, data: SchemaData) -> None:
         if self.isValid:
             self.send(self.schema_addr, (json.dumps(data)))
 
-    def sendConnectConfirmation(self, data: dict[str, Any]) -> None:
+    def sendConnectConfirmation(self, data: SchemaData) -> None:
         if self.isValid:
             self.send(self.connect_confirm_addr, (json.dumps(data)))
 
     def sendDisconnect(self) -> None:
         self.send(self.disconnect_addr)
 
-    @classmethod
-    def send_message(cls, host: str, port: int, addr: str, *args: Any) -> None:
+    @staticmethod
+    def send_message(host: str, port: int, addr: str, *args: Any) -> None:
         client = udp_client.SimpleUDPClient(host, port)
         client.send_message(addr, args)
 
@@ -87,9 +87,9 @@ class Connection:
     instructions from the Server and translates them into OSC actions
     """
 
-    def __init__(self, osc_server: "OscServer", id, connect=True):
+    def __init__(self, osc_server: "OscServer", id: str, connect: bool = True):
         logger.debug("[Connection.__init__] id: {}".format(id))
-        self.osc_server = osc_server
+        self.osc_server: Optional[OscServer] = osc_server
         self.server = osc_server.server
         self.client = Client(osc_server, id)
         self.isActive = self.client.isValid and connect
@@ -104,7 +104,7 @@ class Connection:
         if self.isActive:
             self.server.connect(self.remote)
 
-    def __del__(self):
+    def __del__(self) -> None:
         self.disconnect()
 
     def disconnect(self) -> None:
@@ -115,17 +115,17 @@ class Connection:
         if self.remote and self.server:
             self.server.disconnect(self.remote)
 
-    def onValueToRemote(self, path, value) -> None:
+    def onValueToRemote(self, path: str, value: Any) -> None:
         if not self.isActive:
             return
         self.client.sendValue(path, value)
 
-    def onSchemaToRemote(self, schema_data) -> None:
+    def onSchemaToRemote(self, schema_data: SchemaData) -> None:
         if not self.isActive:
             return
         self.client.sendSchema(schema_data)
 
-    def onConnectConfimToRemote(self, schema_data) -> None:
+    def onConnectConfimToRemote(self, schema_data: SchemaData) -> None:
         if not self.isActive:
             return
         self.client.sendConnectConfirmation(schema_data)
@@ -157,7 +157,7 @@ def create_osc_listener(
 
     thread = threading.Thread(target=server.serve_forever)
 
-    def disconnect():
+    def disconnect() -> None:
         server.shutdown()
         thread.join()
 
@@ -171,13 +171,11 @@ class OscServer:
         server: Server,
         port: int = 8000,
         prefix: str = "/params",
-        capture_sends: Optional[Callable[[str, int, str, tuple], None]] = None,
         listen: bool = True,
     ) -> None:
         self.server = server
         self.port = port
-        self.capture_sends = capture_sends
-        self.connections = []
+        self.connections: list[Connection] = []
         self.remote = Remote()
         # register our remote instance, through which we'll
         # inform the server about incoming information
@@ -201,7 +199,6 @@ class OscServer:
 
     def stop(self) -> None:
         # this triggers cleanup in destructor of the Connection instances
-        self.connection = []
         if self.server and self.remote:
             self.server.disconnect(self.remote)
 
@@ -258,13 +255,6 @@ class OscServer:
 
     def send(self, host: str, port: int, addr: str, *args: Any) -> None:
         logger.debug(f"[OscServer.send host={host} port={port}] {addr} {args}")
-        # for debugging only, really
-        if self.capture_sends:
-            self.capture_sends(host, port, addr, args)
-            return
-
-        # client = OSCClient(host, port)x
-        print(args)
         Client.send_message(host, port, addr, *args)
 
     def onConnect(self, response_info: str) -> None:
@@ -291,11 +281,7 @@ if __name__ == "__main__":
 
     # Create params
     params = Params()
-
-    def log(val):
-        print(val)
-
-    params.string("name").onchange(log)
+    params.string("name").onchange(print)
 
     # Create Server and Osc server
     oscserver = OscServer(Server(params))

@@ -2,14 +2,14 @@
 name = "pyremoteparams"
 version = "0.1.0"
 description = ""
-authors = ["MArk van de Korput <dr.theman@gmail.com>"]
+authors = ["Mark van de Korput <dr.theman@gmail.com>"]
 packages = [{ include = "remote_params", "from" = "." }]
 
 [tool.poetry.dependencies]
 python = "^3.10"
-evento = "^1.0.2"
 websockets = "^10.2"
 python-osc = "^1.8.0"
+evento = {path = "../pyevento"}
 
 [tool.poetry.dev-dependencies]
 pytest = "^7.1.1"

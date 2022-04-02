@@ -1,88 +1,46 @@
+import logging
 import os
 import re
 import socket
 import threading
+from http.client import HTTPSConnection
+from http.server import CGIHTTPRequestHandler, HTTPServer
+from typing import Any, Callable, Literal, Optional
+from urllib.parse import urlsplit, urlunsplit
 
 from evento import Event
 
-# import urllib.parse
-urlsplit = None
-urlunsplit = None
-try:  # python3
-    import urllib.parse  # python3
+Method = Literal["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD"]
 
-    urlsplit = urllib.parse.urlsplit
-    urlunsplit = urllib.parse.urlunsplit
-except ImportError:
-    urlsplit = None
-    urlunsplit = None
-
-    try:  # python2
-        import urlparse  # python2
-
-        urlsplit = urlparse.urlsplit
-        urlunsplit = urlparse.urlunsplit
-    except ImportError:
-        print("[HttpServer] could not load url parsing dependencies")
-
-
-# import http.client
-HTTPSConnection = None
-try:  # python 3
-    import http.client
-
-    HTTPSConnection = http.client.HTTPConnection
-except ImportError:
-    try:  # python 2
-        import httplib
-
-        HTTPSConnection = httplib.HTTPSConnection
-    except ImportError:
-        print("[HttpServer] could not load http client dependencies")
-
-
-# from http.server import HTTPServer, CGIHTTPRequestHandler #SimpleHTTPRequestHandler
-HTTPServer = None
-CGIHTTPRequestHandler = None
-try:
-    import http.server
-
-    HTTPServer = http.server.HTTPServer
-    CGIHTTPRequestHandler = http.server.CGIHTTPRequestHandler
-except ImportError:
-    try:
-        import BaseHTTPServer
-        import CGIHTTPServer
-
-        HTTPServer = BaseHTTPServer.HTTPServer
-        CGIHTTPRequestHandler = CGIHTTPServer.CGIHTTPRequestHandler
-    except ImportError:
-        print("[HttpServer] Could not load server dependencies")
+log = logging.getLogger(__name__)
 
 
 class HttpRequest:
-    def __init__(self, path, handler, method="GET"):
+    def __init__(
+        self,
+        path: str,
+        handler: "_CustomHandler",
+        method: Method = "GET",
+    ) -> None:
         self.path = path
         self.handler = handler
         self.method = method
-
         parts = urlsplit(self.path)
         # newpath = re.sub('^{}'.format(scope), '', parts.path)
         # unscopedreqpath = urlunsplit((parts.scheme, parts.netloc, newpath, parts.query, parts.fragment))
         self.query = parts.query
 
-    def respondWithCode(self, code):
+    def respondWithCode(self, code: int) -> None:
         self.handler.respond(code)
 
-    def respond(self, code, content):
+    def respond(self, code: int, content: bytes) -> None:
         self.handler.respond(code, content)
 
-    def respondWithFile(self, filePath):
+    def respondWithFile(self, filePath: str) -> None:
         self.handler.respondWithFile(filePath)
 
-    def unscope(self, scope):
+    def unscope(self, scope: str) -> "HttpRequest":
         if urlsplit is None or urlunsplit is None:
-            print("[HttpScope] unscope not working")
             return HttpRequest(self.path, self.handler, method=self.method)
 
         parts = urlsplit(self.path)
@@ -94,13 +52,17 @@ class HttpRequest:
 
 
 class _CustomHandler(CGIHTTPRequestHandler, object):
-    def __init__(self, requestCallback, *args, **kwargs):
+    def __init__(
+        self, requestCallback: Callable[[HttpRequest], None], *args: Any, **kwargs: Any
+    ) -> None:
         super().__init__(*args, **kwargs)
         self.requestCallback = requestCallback
-        self.hasResponded = False
-        self.respondedWithFile = None
+        self.hasResponded: bool = False
+        self.respondedWithFile: Optional[str] = None
 
-    def respond(self, code=None, body=None, headers=None):
+    def respond(
+        self, code: Optional[int] = None, body: Optional[bytes] = None, headers: dict[str, Any] = {}
+    ) -> None:
         self.hasResponded = True
 
         if code is None:
@@ -120,50 +82,48 @@ class _CustomHandler(CGIHTTPRequestHandler, object):
         # self.wfile.close()
         return
 
-    def respondWithFile(self, filePath):
+    def respondWithFile(self, filePath: str) -> None:
         self.respondedWithFile = filePath
 
-    def process_request(self, method="GET"):
+    def process_request(self, method: Method = "GET") -> bool:
         req = HttpRequest(self.path, self, method=method)
         self.requestCallback(req)
 
         return self.hasResponded
 
-    def do_HEAD(self):
+    def do_HEAD(self) -> None:
         if not self.process_request(method="HEAD"):
             super().do_HEAD()
 
-    def do_GET(self):
+    def do_GET(self) -> None:
         if not self.process_request(method="GET"):
             super().do_GET()
 
-    def do_POST(self):
+    def do_POST(self) -> None:
         if not self.process_request(method="POST"):
             super().do_POST()
 
-    def do_PUT(self):
-        if not self.process_request(method="PUT"):
-            super().do_PUT()
-
-    def translate_path(self, path):
+    def translate_path(self, path: str) -> str:
         if self.respondedWithFile:
             if os.path.isfile(self.respondedWithFile):
                 return self.respondedWithFile
         return CGIHTTPRequestHandler.translate_path(self, path)
 
 
-def createRequestHandler(requestCallback, verbose=False):
+def createRequestHandler(
+    requestCallback: Callable[[HttpRequest], None], verbose: bool = False
+) -> type[_CustomHandler]:
     class CustomHandler(_CustomHandler):
-        def __init__(self, *args, **kwargs) -> None:
+        def __init__(self, *args: Any, **kwargs: Any) -> None:
             super().__init__(requestCallback, *args, **kwargs)
 
     # class CustomHandler(CGIHTTPRequestHandler, object):
-    #     def __init__(self, *args, **kwargs):
+    #     def __init__(self, *args, **kwargs) -> None:
     #         self.hasResponded = False
     #         self.respondedWithFile = None
     #         super().__init__(*args, **kwargs)
 
-    #     def respond(self, code=None, body=None, headers=None):
+    #     def respond(self, code=None, body=None, headers=None) -> None:
     #         self.hasResponded = True
 
     #         if code is None:
@@ -183,32 +143,32 @@ def createRequestHandler(requestCallback, verbose=False):
     #         # self.wfile.close()
     #         return
 
-    #     def respondWithFile(self, filePath):
+    #     def respondWithFile(self, filePath) -> None:
     #         self.respondedWithFile = filePath
 
-    #     def process_request(self, method="GET"):
+    #     def process_request(self, method="GET") -> None:
     #         req = HttpRequest(self.path, self, method=method)
     #         requestCallback(req)
 
     #         return self.hasResponded
 
-    #     def do_HEAD(self):
+    #     def do_HEAD(self) -> None:
     #         if not self.process_request(method="HEAD"):
     #             super().do_HEAD()
 
-    #     def do_GET(self):
+    #     def do_GET(self) -> None:
     #         if not self.process_request(method="GET"):
     #             super().do_GET()
 
-    #     def do_POST(self):
+    #     def do_POST(self) -> None:
     #         if not self.process_request(method="POST"):
     #             super().do_POST()
 
-    #     def do_PUT(self):
+    #     def do_PUT(self) -> None:
     #         if not self.process_request(method="PUT"):
     #             super().do_PUT()
 
-    #     def translate_path(self, path):
+    #     def translate_path(self, path) -> str:
     #         if self.respondedWithFile:
     #             if os.path.isfile(self.respondedWithFile):
     #                 return self.respondedWithFile
@@ -218,33 +178,34 @@ def createRequestHandler(requestCallback, verbose=False):
 
 
 class HttpServer(threading.Thread):
-    def __init__(self, port=8080, start=True):
+    def __init__(self, port: int = 8080, start: bool = True) -> None:
         threading.Thread.__init__(self)
-        self.http_server = None
-        self.threading_event = None
+        self.http_server: Optional[HTTPServer] = None
         self.port = port
-        self.isVerbose = False
 
-        self.requestEvent = Event()
+        self.requestEvent: Event[HttpRequest] = Event()
+        self.threading_event: Optional[threading.Event] = None
 
         if start:
             self.startServer()
 
-    def __del__(self):
+    def __del__(self) -> None:
         self.stopServer()
 
-    def startServer(self):
+    def startServer(self) -> None:
         self.threading_event = threading.Event()
         self.threading_event.set()
-        self.verbose("[HttpServer] starting server thread")
+        log.debug("[HttpServer] starting server thread")
         self.start()  # start thread
 
-    def stopServer(self, joinThread=True):
-        if not self.isAlive():
+    def stopServer(self, joinThread: bool = True) -> None:
+        if not self.is_alive():
             return
 
-        self.threading_event.clear()
-        self.verbose("[HttpServer] sending GET request to stop HTTP server from blocking...")
+        if self.threading_event:
+            self.threading_event.clear()
+
+        log.debug("[HttpServer] sending GET request to stop HTTP server from blocking...")
 
         try:
             connection = HTTPSConnection("127.0.0.1", self.port)
@@ -256,37 +217,30 @@ class HttpServer(threading.Thread):
         if joinThread:
             self.join()
 
-    def setPort(self, p):
-        self.port = p
+    def run(self) -> None:
+        threading_event = self.threading_event
+        assert threading_event
 
-    # thread function
-    def run(self):
-        self.verbose("[HttpServer] starting server on port {0}".format(self.port))
-        HandlerClass = createRequestHandler(self.onRequest, verbose=self.isVerbose)
-        self.http_server = HTTPServer(("", self.port), HandlerClass)
+        log.debug("[HttpServer] starting server on port {0}".format(self.port))
+        HandlerClass = createRequestHandler(self.onRequest)
+        http_server = HTTPServer(("", self.port), HandlerClass)
+        self.http_server = http_server
 
         # self.httpd.serve_forever()
         # self.httpd.server_activate()
-        while self.threading_event.is_set():  # not self.kill:
+        while threading_event.is_set():
             try:
-                self.http_server.handle_request()
+                http_server.handle_request()
             except Exception as exc:
                 print("[HttpServer] exception:")
                 print(exc)
 
-        self.verbose("[HttpServer] closing server at port {0}".format(self.port))
-        self.http_server.server_close()
-        self.http_server = None
+        log.debug("[HttpServer] closing server at port {0}".format(self.port))
+        http_server.server_close()
+        http_server = None
 
-    def onRequest(self, req):
-        self.verbose(
+    def onRequest(self, req: HttpRequest) -> None:
+        log.debug(
             "[HttpServer {}] request from {}".format(str(req.path), str(req.handler.client_address))
         )
         self.requestEvent(req)
-
-    def setVerbose(self, v):
-        self.isVerbose = v
-
-    def verbose(self, msg):
-        if self.isVerbose:
-            print(msg)
