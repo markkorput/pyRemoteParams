@@ -1,7 +1,7 @@
 import logging
 from typing import Any, Callable, Optional
 
-from evento import Event
+from evento import Event, decorators
 
 from .params import ImageParam, Param, Params
 from .schema import SchemaData, apply_schema_list, schema_list
@@ -9,22 +9,38 @@ from .schema import SchemaData, apply_schema_list, schema_list
 log = logging.getLogger(__name__)
 
 
+def valueEvent(path: str, value: Any) -> None:
+    ...
+
+
+def void() -> None:
+    ...
+
+
 class Incoming:
     def __init__(self) -> None:
         # events for remote-to-server communications
-        self.valueEvent: Event[Any] = Event()
-        self.disconnectEvent: Event[None] = Event()
-        self.confirmEvent: Event[None] = Event()
-        self.requestSchemaEvent: Event[str] = Event()
+        self.valueEvent = decorators.event(valueEvent)
+        self.disconnectEvent = decorators.event(void)
+        self.confirmEvent = decorators.event(void)
+        self.requestSchemaEvent = decorators.event(void)
+
+
+def sendValueEvent(path: str, value: Any) -> None:
+    ...
+
+
+def sendDisconnectEvent() -> None:
+    ...
 
 
 class Outgoing:
     def __init__(self) -> None:
         # events notifying about server-to-remote communications
-        self.sendValueEvent: Event[tuple[str, Any]] = Event()
+        self.sendValueEvent = decorators.event(sendValueEvent)
         self.sendSchemaEvent: Event[SchemaData] = Event()
         self.sendConnectConfirmationEvent: Event[Optional[SchemaData]] = Event()
-        self.sendDisconnectEvent: Event[None] = Event()
+        self.sendDisconnectEvent = decorators.event(sendDisconnectEvent)
 
     def send_connect_confirmation(self, schema_data: Optional[SchemaData] = None) -> None:
         """
@@ -57,7 +73,7 @@ class Outgoing:
         Use this method to notify the connected client about
         a single param value change
         """
-        self.sendValueEvent((path, value))
+        self.sendValueEvent(path, value)
 
 
 class Remote:
@@ -229,7 +245,7 @@ def create_sync_params(remote: Remote, request_initial_schema: bool = True) -> P
         if isinstance(param, Param):
             param.set(value)
 
-    remote.outgoing.sendValueEvent.add += onValue
+    remote.outgoing.sendValueEvent += onValue
 
     # request schema data
     if request_initial_schema:

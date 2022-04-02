@@ -1,7 +1,7 @@
 # import base64
 # import distutils
 import logging
-from typing import Any, Callable, Generic, Optional, TypeVar
+from typing import Any, Callable, Generic, Optional, TypeVar, cast
 
 from .param import Param
 
@@ -92,8 +92,11 @@ class VoidParam(Param[int]):
     def __init__(self) -> None:
         super().__init__("v", 0)
 
+    def set(self, _: Any) -> None:
+        return super().set(cast(int, self.value) + 1)
+
     def trigger(self) -> None:
-        self.set((self.value or 0) + 1)
+        self.set(0)
 
     def ontrigger(self, func: Callable[[], None]) -> None:
         def _middleman(_: int) -> None:

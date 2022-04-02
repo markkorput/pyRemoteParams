@@ -27,7 +27,7 @@ class Client:
       'localhost:6000'
     """
 
-    def __init__(self, server: "OscServer", id: str, prefix: str = " /params") -> None:
+    def __init__(self, server: "OscServer", id: str, prefix: str = "/params") -> None:
         """
         Parameters
         ----------

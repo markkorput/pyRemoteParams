@@ -2,7 +2,7 @@ import logging
 from collections import OrderedDict
 from typing import Any, Callable, Optional, TypeVar, Union, overload
 
-from evento import Event
+from evento import decorators
 
 from .param import Param
 from .types import FloatParam, ImageParam, IntParam, VoidParam
@@ -12,11 +12,24 @@ log = logging.getLogger(__name__)
 T = TypeVar("T")
 
 
+def changeEvent() -> None:
+    ...
+
+
+def schemaChangeEvent() -> None:
+    ...
+
+
+def valueChangeEvent(path: str, value: Any, param: Param[Any]) -> None:
+    ...
+
+
 class Params(OrderedDict[str, Union[Param[Any], "Params"]]):
     def __init__(self) -> None:
-        self.changeEvent = Event()
-        self.schemaChangeEvent = Event()
-        self.valueChangeEvent = Event()
+        self.changeEvent = decorators.event(changeEvent)
+        self.schemaChangeEvent = decorators.event(schemaChangeEvent)
+        self.valueChangeEvent = decorators.event(valueChangeEvent)
+
         self.removers: dict[str, Callable[[], None]] = {}
 
     def __del__(self) -> None:
@@ -108,8 +121,6 @@ class Params(OrderedDict[str, Union[Param[Any], "Params"]]):
 
         self[id] = item
 
-        self.append(id, item)
-
         def remover() -> None:
             del self[id]
             self.schemaChangeEvent()
@@ -120,7 +131,7 @@ class Params(OrderedDict[str, Union[Param[Any], "Params"]]):
         # a single param added?
         if isinstance(item, Param):
 
-            def onchange() -> None:
+            def onchange(v: Any) -> None:
                 self.changeEvent()
                 if isinstance(item, Param):
                     self.valueChangeEvent("/" + id, item.val(), item)

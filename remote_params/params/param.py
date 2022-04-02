@@ -32,9 +32,9 @@ class Param(Generic[T]):
         if self._equals(v, self.value):
             return
 
-        self.value = value
+        self.value = v
         logger.debug("[Param.set] changevent")
-        self.changeEvent()
+        self.changeEvent(self.value)
 
     def _equals(self, v1: Optional[T], v2: Optional[T]) -> bool:
         return v1 is v2
@@ -59,8 +59,8 @@ class Param(Generic[T]):
         if self.is_initialized():
             d["value"] = self.value
 
-        if self.opts and len(self.opts) > 0:
-            d["opts"] = self.opts
+        if opts := {k: v for k, v in self.opts.items() if v is not None}:
+            d["opts"] = opts
 
         return d
 

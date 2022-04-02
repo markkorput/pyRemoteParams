@@ -41,8 +41,8 @@ class TestParams:
         assert param.changeEvent._fireCount == 2
 
         param.set("yyy")  # will not change the value
-        assert not param.val()
-        assert param.changeEvent._fireCount == 2
+        assert param.val()
+        assert param.changeEvent._fireCount == 3
 
     def test_float(self):
         params = Params()
@@ -63,7 +63,7 @@ class TestParams:
         exits = []
         exitparam.onchange(exits.append)
         assert len(exits) == 0
-        exitparam.set(None)
+        exitparam.set(1)
         assert len(exits) == 1
         exitparam.set("foo")
         assert len(exits) == 2
@@ -121,7 +121,7 @@ class TestParams:
     def test_get_path_with_invalid_path(self):
         pars = Params()
         pars.string("foo")
-        assert pars.get_path(pars, "/bar") is None
+        assert pars.get_path("/bar") is None
 
 
 class TestParam:
@@ -137,7 +137,7 @@ class TestParam:
         assert p.val() == 5.50
 
     def test_opts(self):
-        p = Param("s", opts={"minlength": 3})
+        p = Param("s", minlength=3)
         assert p.opts == {"minlength": 3}
 
 

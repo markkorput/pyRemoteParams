@@ -42,7 +42,7 @@ class TestOsc:
         #
 
         # create fake incoming connect message
-        osc_server.receive("/params/connect", ["127.0.0.1:8081"])
+        osc_server.receive("/params/connect", "127.0.0.1:8081")
         # verify a connect confirmation was sent
         sendmock.assert_called_with(
             "127.0.0.1", 8081, "/params/connect/confirm", json.dumps(schema.schema_list(params))
@@ -58,7 +58,7 @@ class TestOsc:
         #
         assert params.get("name").val() is None
         # send_log.clear()
-        osc_server.receive("/params/value", ["/name", "Fab"])
+        osc_server.receive("/params/value", "/name", "Fab")
         # verify value got applied into our local params
         assert params.get("name").val() == "Fab"
         # verify the value was broadcasted back to client
@@ -70,7 +70,7 @@ class TestOsc:
         # Client sends invalid new value
         #
         # send_log.clear()
-        osc_server.receive("/params/value", ["/foo", "bar"])
+        osc_server.receive("/params/value", "/foo", "bar")
         # verify nothing sent out to client(s)
         # assert len(send_log) == 0
         assert len(sendmock.call_args_list) == 2
@@ -97,7 +97,7 @@ class TestOsc:
         # Client requests schema
         #
         # send_log.clear()
-        osc_server.receive("/params/schema", ["192.168.1.2:8080"])
+        osc_server.receive("/params/schema", "192.168.1.2:8080")
         # verify response
         # assert send_log == [
         #     (
