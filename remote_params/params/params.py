@@ -1,6 +1,7 @@
 import logging
 from collections import OrderedDict
-from typing import Any, Callable, Optional, TypeVar, Union
+from contextlib import contextmanager
+from typing import Any, Callable, Generator, Optional, TypeVar, Union
 
 from evento import decorators
 
@@ -31,6 +32,7 @@ class Params(OrderedDict[str, Union[Param[Any], "Params"]]):
         self.on_value_change = decorators.event(on_value_change)
 
         self.removers: dict[str, Callable[[], None]] = {}
+        self._batches: list[list[Callable[[], Any]]] = []
 
     def __del__(self) -> None:
         for id in list(self.removers.keys()):
@@ -108,6 +110,15 @@ class Params(OrderedDict[str, Union[Param[Any], "Params"]]):
         self.append(id, p)
         return p
 
+    @contextmanager
+    def batch(self) -> Generator[None, None, None]:
+        self._batches.append([])
+
+        yield
+
+        for action in self._batches.pop():
+            action()
+
     def _get_id(self, param: Param[Any]) -> Optional[str]:
         return next((id for id, item in self.items() if item == param), None)
 
@@ -123,7 +134,7 @@ class Params(OrderedDict[str, Union[Param[Any], "Params"]]):
         def remover() -> None:
             del self[id]
             self.on_schema_change()
-            self.on_change()
+            self._fire_change()
 
         cleanups.append(remover)
 
@@ -131,9 +142,9 @@ class Params(OrderedDict[str, Union[Param[Any], "Params"]]):
         if isinstance(item, Param):
 
             def onchange(v: Any) -> None:
-                self.on_change()
+                self._fire_change()
                 if isinstance(item, Param):
-                    self.on_value_change("/" + id, item.get(), item)
+                    self._fire_value_change("/" + id, item.get(), item)
 
             _remove = item.on_change.add(onchange)
             cleanups.append(_remove)
@@ -149,8 +160,8 @@ class Params(OrderedDict[str, Union[Param[Any], "Params"]]):
             _remove = item.on_value_change.add(forwardValChange)
             cleanups.append(_remove)
 
-        self.on_schema_change()
-        self.on_change()
+        self._fire_schema_change()
+        self._fire_change()
 
         def _remove_child() -> None:
             del self.removers[id]
@@ -159,3 +170,18 @@ class Params(OrderedDict[str, Union[Param[Any], "Params"]]):
 
         self.removers[id] = _remove_child
         return _remove_child
+
+    def _fire_change(self) -> None:
+        self._batch(self.on_change)
+
+    def _fire_value_change(self, path: str, value: Any, param: Param[Any]) -> None:
+        self._batch(lambda: self.on_value_change(path, value, param))
+
+    def _fire_schema_change(self) -> None:
+        self._batch(self.on_schema_change)
+
+    def _batch(self, func: Callable[[], Any]) -> None:
+        if self._batches:
+            self._batches[-1].append(func)
+        else:
+            func()

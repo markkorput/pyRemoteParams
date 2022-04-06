@@ -134,6 +134,27 @@ class TestParams:
         assert p.type == "i"
         assert len(params) == 1
 
+    @pytest.mark.focus
+    def test_batch(self):
+        params = Params()
+        param = params.int("test")
+        assert params.on_change._fireCount == 1
+        assert params.on_schema_change._fireCount == 1
+        assert params.on_value_change._fireCount == 0
+
+        with params.batch():
+            for idx in range(3):
+                params.int(f"number{idx}")
+                param.set(idx)
+                param.set(idx)
+                assert params.on_change._fireCount == 1
+                assert params.on_schema_change._fireCount == 1
+                assert params.on_value_change._fireCount == 0
+
+        assert params.on_change._fireCount == 6
+        assert params.on_value_change._fireCount == 2
+        assert params.on_schema_change._fireCount == 4
+
 
 class TestParam:
     def test_opts(self):
