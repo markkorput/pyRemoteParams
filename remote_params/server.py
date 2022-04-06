@@ -61,10 +61,7 @@ class Outgoing:
         Use this notify/confirm disconnect to the Remote
         """
 
-        log.debug(
-            "[Remote.outgoing.send_disconnect"
-            f" listeners={self.sendDisconnectEvent.getSubscriberCount()}]"
-        )
+        log.debug(f"[Remote.outgoing.send_disconnect listeners={len(self.sendDisconnectEvent)}]")
 
         self.sendDisconnectEvent()
 

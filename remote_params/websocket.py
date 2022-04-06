@@ -3,8 +3,10 @@ import json
 import logging
 import math
 import threading
-from typing import Any, Optional, Union
+from contextlib import asynccontextmanager
+from typing import Any, AsyncGenerator, Optional, Union
 
+from websockets import client as wsclient
 from websockets import exceptions
 from websockets import server as wsserver
 
@@ -196,6 +198,34 @@ class WebsocketServer:
         logger.debug(f"sendToAllConnectedSockets: {msg} websocket remote(s): {len(self.sockets)}")
         for websocket in self.sockets:
             await websocket.send(msg)
+
+
+class WebsocketClient:
+    def __init__(self, client: wsclient.WebSocketClientProtocol) -> None:
+        self.client: Optional[wsclient.WebSocketClientProtocol] = client
+
+    def __del__(self) -> None:
+        self.disconnect()
+
+    async def disconnect(self) -> None:
+        if self.client:
+            await self.client.close()
+            self.client = None
+
+    async def send_value(self, path: str, value: Any) -> None:
+        await self._send(f"POST {path}?value={str(value)}")
+
+    async def _send(self, message: str) -> None:
+        assert self.client
+        await self.client.send(message)
+
+    @classmethod
+    @asynccontextmanager
+    async def connect(
+        cls, host: str = "127.0.0.1", port: int = DEFAULT_PORT
+    ) -> AsyncGenerator["WebsocketClient", None]:
+        async with wsclient.connect(f"ws://{host}:{port}") as client:
+            yield cls(client)
 
 
 if __name__ == "__main__":
