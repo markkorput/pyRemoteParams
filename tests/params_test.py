@@ -134,7 +134,6 @@ class TestParams:
         assert p.type == "i"
         assert len(params) == 1
 
-    @pytest.mark.focus
     def test_batch(self):
         params = Params()
         param = params.int("test")

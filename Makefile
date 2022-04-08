@@ -1,6 +1,11 @@
 RUN = poetry run
 PATHS = remote_params tests
 
+.PHONY: up
+up:
+	poetry remove evento
+	poetry add ../pyevento
+
 # Code style
 .PHONY: format
 format:

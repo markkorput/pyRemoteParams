@@ -1,8 +1,6 @@
 import asyncio
 import json
 import logging
-import math
-import threading
 from contextlib import asynccontextmanager
 from typing import Any, AsyncGenerator, Optional, Union
 
@@ -16,7 +14,7 @@ from .server import Remote, Server
 
 DEFAULT_PORT = 8081
 
-logger = logging.getLogger(__name__)
+log = logging.getLogger(__name__)
 
 
 class WebsocketServer:
@@ -33,89 +31,31 @@ class WebsocketServer:
     def __init__(
         self,
         server: Union[Server, Params],
-        host: str = "0.0.0.0",
-        port: int = DEFAULT_PORT,
-        start: bool = True,
     ):
         self.server = server if isinstance(server, Server) else Server(server)
-        self.host = host
-        self.port = port
-        self.thread: Optional[threading.Thread] = None
         self.sockets: set[wsserver.WebSocketServerProtocol] = set()
 
         self.remote = Remote(serialize=True)
-        self.remote.outgoing.sendValueEvent += self._onValueFromServer
-        self.remote.outgoing.sendSchemaEvent += self._onSchemaFromServer
-
-        self._ws_server: Optional[wsserver.WebSocketServer] = None
-
-        if start:
-            self.start()
+        self.setup()
 
     def __del__(self) -> None:
-        self.stop()
-        self.remote.outgoing.sendValueEvent -= self._onValueFromServer
-        self.remote.outgoing.sendSchemaEvent -= self._onSchemaFromServer
+        self.destroy()
 
-    def start(self) -> None:
+    def setup(self) -> None:
         """
         Connect private Remote instance to server
         Start websockets server coroutine in a separate thread
         """
+        self.remote.outgoing.sendValueEvent += self._broadcast_value
+        self.remote.outgoing.sendSchemaEvent += self._broadcast_schema
         self.server.connect(self.remote)
 
-        async_action = wsserver.serve(self._connectionFunc, self.host, self.port)
-
-        eventloop = asyncio.get_event_loop()
-
-        def func() -> None:
-            eventloop.run_until_complete(async_action)
-            eventloop.run_forever()
-
-        self.thread = threading.Thread(target=func)
-        self.thread.start()
-
-    async def start_async(self) -> wsserver.WebSocketServer:
-        """
-        Connect private Remote instance to server
-        Start websockets server coroutine.
-
-        Returns
-        -------
-        websocket WebsocketServer instance
-        """
-        self.server.connect(self.remote)
-        self._ws_server = await wsserver.serve(self._connectionFunc, self.host, self.port)
-        return self._ws_server
-
-    def stop(self, joinThread: bool = True) -> None:
-        """
-
-        Disconnect private remote instance form server.
-        Closes start WebsocketServer is any.
-        Wait for spawned thread to end if any and if `joinThread` is True.
-
-        Parameter
-        ---------
-        joinThread: boolean
-          When True, will wait for started thread to finish
-        """
+    def destroy(self) -> None:
         self.server.disconnect(self.remote)
+        self.remote.outgoing.sendValueEvent -= self._broadcast_value
+        self.remote.outgoing.sendSchemaEvent -= self._broadcast_schema
 
-        if self._ws_server:
-            self._ws_server.close()
-            self._ws_server = None
-
-        if not self.thread:
-            return
-
-        if joinThread:
-            print("joining thread")
-            self.thread.join()
-        self.thread = None
-        logger.debug("WebsocketServer thread stopped")
-
-    async def _connectionFunc(self, websocket: wsserver.WebSocketServerProtocol, path: str) -> None:
+    async def connection(self, websocket: wsserver.WebSocketServerProtocol, path: str) -> None:
         """
         This method runs for every incoming websocket connection.
         It registers the websocket (add it to self.sockets)
@@ -124,22 +64,22 @@ class WebsocketServer:
         """
         logging.info("New websocket connection...")
         self.sockets.add(websocket)
-        logger.debug(f"registered websocket, {len(self.sockets)} active")
+        log.debug(f"registered websocket, {len(self.sockets)} active")
 
         try:
             await websocket.send("welcome to pyRemoteParams websockets")
             async for msg in websocket:
-                await self._onMessage(msg, websocket)
+                await self._on_message(msg, websocket)
         except exceptions.ConnectionClosedError:
-            logger.info("Connection closed.")
+            log.info("Connection closed.")
         except KeyboardInterrupt:
-            logger.warning("KeyboardInterrupt in WebsocketServer connectionFunc")
+            log.warning("KeyboardInterrupt in WebsocketServer connectionFunc")
         finally:
             self.sockets.remove(websocket)
 
-            logger.debug(f"unregistered websocket, {len(self.sockets)} left")
+            log.debug(f"unregistered websocket, {len(self.sockets)} left")
 
-    async def _onMessage(
+    async def _on_message(
         self, msg: Union[bytes, str], websocket: wsserver.WebSocketServerProtocol
     ) -> None:
         """
@@ -149,16 +89,16 @@ class WebsocketServer:
         val = msg if isinstance(msg, str) else msg.decode("utf-8")
 
         if val == "stop":
-            logger.info("Websocket connection stopped")
-            websocket.close()
+            log.info("Websocket connection stopped")
+            await websocket.close()
             return
 
         if val.startswith("GET schema.json"):
-            logger.info(f"Got websocket schema request ({val})")
+            log.info(f"Got websocket schema request ({val})")
             # immediately respond
             data = schema_list(self.server.params)
             val = f"POST schema.json?schema={json.dumps(data)}"
-            logger.debug(f"Websocket schema request response: ({val})")
+            log.debug(f"Websocket schema request response: ({val})")
             await websocket.send(val)
             return
 
@@ -166,38 +106,57 @@ class WebsocketServer:
         if val.startswith("POST /") and "?value=" in val:
             no_prefix = val[len("POST ") :]  # assume no query in the url
             path, val = no_prefix.split("?value=")
-            logger.info(f"Value received via websocket: {path} = {val}")
+            log.info(f"Value received via websocket: {path} = {val}")
             self.remote.incoming.valueEvent(path, val)
             return
 
-        logger.warning(f"Received unknown websocket message: {val}")
+        log.warning(f"Received unknown websocket message: {val}")
 
-    def _onValueFromServer(self, path: str, val: Any) -> None:
+    def _broadcast_value(self, path: str, val: Any) -> None:
         """
         This method gets called when our Remote instance gets notified by Server
         instance, about a param value-change. We'll send out the value-change
         to all connected websockets.
         """
-        logger.debug(f"onValueFromServer(path={path}, val={val})")
+        log.debug(f"onValueFromServer(path={path}, val={val})")
         msg = f"POST {path}?value={val}"
-        asyncio.ensure_future(self._sendToAllConnectedSockets(msg))
+        asyncio.ensure_future(self._broadcast(msg))
+        # asyncio.get_event_loop().run_in_executor(None, self._broadcast, msg)
 
-    def _onSchemaFromServer(self, schemadata: dict[str, Any]) -> None:
+    def _broadcast_schema(self, schemadata: dict[str, Any]) -> None:
         """
         This method gets called when our Remote instance gets notified by Server
         instance, about a schema change. We'll send out the schema change
         to all connected websockets.
         """
         msg = f"POST schema.json?schema={json.dumps(schemadata)}"
-        asyncio.ensure_future(self._sendToAllConnectedSockets(msg))
+        asyncio.ensure_future(self._broadcast(msg))
+        # asyncio.get_event_loop().run_in_executor(None, self._broadcast, msg)
 
-    async def _sendToAllConnectedSockets(self, msg: str) -> None:
+    async def _broadcast(self, msg: str) -> None:
         """
         This method broadcasts the given msg to all connected websockets
         """
-        logger.debug(f"sendToAllConnectedSockets: {msg} websocket remote(s): {len(self.sockets)}")
+        log.debug(f"sendToAllConnectedSockets: {msg} websocket remote(s): {len(self.sockets)}")
         for websocket in self.sockets:
             await websocket.send(msg)
+
+    @classmethod
+    @asynccontextmanager
+    async def launch(
+        self, server: Union[Server, Params], host: str = "0.0.0.0", port: int = DEFAULT_PORT
+    ) -> AsyncGenerator["WebsocketServer", None]:
+        s = WebsocketServer(server)
+
+        async def on_connection(websocket: wsserver.WebSocketServerProtocol, path: str) -> None:
+            log.info(
+                f"websocket client connected (host={websocket.host}, port={websocket.port},"
+                f" path={path})"
+            )
+            await s.connection(websocket, path)
+
+        async with wsserver.serve(on_connection, host, port):
+            yield s
 
 
 class WebsocketClient:
@@ -226,105 +185,3 @@ class WebsocketClient:
     ) -> AsyncGenerator["WebsocketClient", None]:
         async with wsclient.connect(f"ws://{host}:{port}") as client:
             yield cls(client)
-
-
-if __name__ == "__main__":
-    from remote_params.params import Params
-
-    """
-  Example: serve bunch of params
-  """
-    import time
-    from optparse import OptionParser
-
-    def parse_args() -> tuple[Any, Any]:
-        parser = OptionParser()
-        parser.add_option("-p", "--port", default=8081, type="int")
-        parser.add_option("--host", default="0.0.0.0")
-
-        parser.add_option("--no-async", action="store_true")
-        parser.add_option("-v", "--verbose", action="store_true", default=False)
-        parser.add_option("--verbosity", action="store_true", default="info")
-
-        opts, args = parser.parse_args()
-        lvl = {
-            "debug": logging.DEBUG,
-            "info": logging.INFO,
-            "warning": logging.WARNING,
-            "error": logging.ERROR,
-            "critical": logging.CRITICAL,
-        }["debug" if opts.verbose else str(opts.verbosity).lower()]
-        logging.basicConfig(level=lvl)
-        return opts, args
-
-    async def main(host: str, port: int) -> None:
-        logger.info(f"Starting websocket server on port: {port}")
-        # Create some vars to test with
-        params = Params()
-        params.string("name").set("John Doe")
-        sineparam = params.float("sine")
-        params.float("range", min=0.0, max=100.0)
-        params.int("level")
-        params.bool("highest-score")
-        params.void("stop")
-
-        gr = Params()
-        gr.string("name").set("Jane Doe")
-        gr.float("score")
-        gr.float("range", min=0.0, max=100.0)
-        gr.int("level")
-        gr.bool("highest-score")
-
-        params.group("parner", gr)
-
-        wss = WebsocketServer(Server(params), host=host, port=port, start=False)
-        await wss.start_async()
-
-        try:
-            while True:
-                await asyncio.sleep(0.5)
-                sineparam.set(math.sin(time.time()))
-
-        except KeyboardInterrupt:
-            print("Received Ctrl+C... initiating exit")
-
-        print("Stopping...")
-        wss.stop()
-
-    def main_sync(host: str, port: int) -> None:
-        logger.info(f"Starting websocket server on port: {port}")
-        # Create some vars to test with
-        params = Params()
-        params.string("name").set("John Doe")
-        params.float("score")
-        params.float("range", min=0.0, max=100.0)
-        params.int("level")
-        params.bool("highest-score")
-        params.void("stop")
-
-        gr = Params()
-        gr.string("name").set("Jane Doe")
-        gr.float("score")
-        gr.float("range", min=0.0, max=100.0)
-        gr.int("level")
-        gr.bool("highest-score")
-
-        params.group("parner", gr)
-
-        wss = WebsocketServer(Server(params), host=host, port=port)
-
-        try:
-            while True:
-                time.sleep(0.5)
-        except KeyboardInterrupt:
-            print("Received Ctrl+C... initiating exit")
-
-        print("Stopping...")
-        wss.stop()
-
-    opts, args = parse_args()
-
-    if opts.no_async:
-        main_sync(opts.host, opts.port)
-    else:
-        asyncio.run(main(opts.host, opts.port))

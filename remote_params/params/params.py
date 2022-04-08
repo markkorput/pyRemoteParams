@@ -185,3 +185,11 @@ class Params(OrderedDict[str, Union[Param[Any], "Params"]]):
             self._batches[-1].append(func)
         else:
             func()
+
+    def get_param(self, id: str) -> Optional[Param[Any]]:
+        p = self.get(id)
+        return p if p and isinstance(p, Param) else None
+
+    def get_group(self, id: str) -> Optional["Params"]:
+        p = self.get(id)
+        return p if p and isinstance(p, Params) else None
