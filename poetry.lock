@@ -111,16 +111,11 @@ python-versions = "*"
 
 [[package]]
 name = "evento"
-version = "2.0.0"
+version = "2.0.1"
 description = "Observer pattern made muy facil"
 category = "main"
 optional = false
-python-versions = "^3.10"
-develop = false
-
-[package.source]
-type = "directory"
-url = "../pyevento"
+python-versions = ">=3.10,<4.0"
 
 [[package]]
 name = "executing"
@@ -433,7 +428,7 @@ python-versions = ">=3.7"
 [metadata]
 lock-version = "1.1"
 python-versions = "^3.10"
-content-hash = "11d4a7d8d70b44911d4315dbaa4380bce8f5f1c958a49be887086ea7831bdfd8"
+content-hash = "994566164c86b46a9634a83501ed485883e53a0fdef207164c4e21abbf22f89d"
 
 [metadata.files]
 asttokens = [
@@ -531,7 +526,10 @@ devtools = [
 docopt = [
     {file = "docopt-0.6.2.tar.gz", hash = "sha256:49b3a825280bd66b3aa83585ef59c4a8c82f2c8a522dbe754a8bc8d08c85c491"},
 ]
-evento = []
+evento = [
+    {file = "evento-2.0.1-py3-none-any.whl", hash = "sha256:a4913a7c4070fd3812d614e10210ba23f4f18eb4064af4cbd27825f218325b3e"},
+    {file = "evento-2.0.1.tar.gz", hash = "sha256:7bb73ab5ce228ad72f1e1a0c8b3371eeca694908fa8acc0e03d1ea0018ab8cf5"},
+]
 executing = [
     {file = "executing-0.8.3-py2.py3-none-any.whl", hash = "sha256:d1eef132db1b83649a3905ca6dd8897f71ac6f8cac79a7e58a1a09cf137546c9"},
     {file = "executing-0.8.3.tar.gz", hash = "sha256:c6554e21c6b060590a6d3be4b82fb78f8f0194d809de5ea7df1c093763311501"},
