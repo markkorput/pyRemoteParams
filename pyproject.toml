@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "pyremoteparams"
-version = "0.1.0"
+version = "0.2.0"
 description = ""
 authors = ["Mark van de Korput <dr.theman@gmail.com>"]
 packages = [{ include = "remote_params", "from" = "." }]
